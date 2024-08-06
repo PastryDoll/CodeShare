@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeMirror Python Editor with Output</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <style>
+        #editor {
+            height: 300px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        #output {
+            height: 200px;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 14px;
+            white-space: pre-wrap; 
+            background-color: #f4f4f4;
+            overflow-y: auto; 
+        }
+        #runButton {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Python CodeMirror Editor with Output</h1>
+    <textarea id="editor"></textarea>
+    <button id="runButton">Run Code</button>
+    <pre id="output"></pre>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.js"></script>
+    
+    <script src="editor.js"></script>
+</body>
+</html>
