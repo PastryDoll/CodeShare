@@ -7,8 +7,13 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    // var outputElement = document.getElementById("output");
+    // outputElement.style.color = "#888"; 
+    // outputElement.style.fontWeight = "bold"; 
+    // outputElement.textContent = "Output Window:";
 
     document.getElementById("runButton").addEventListener("click", function() {
+        runButton.disabled = true;
         var code = editor.getValue();
 
         var outputElement = document.getElementById("output");
@@ -31,6 +36,7 @@ document.addEventListener("DOMContentLoaded", function() {
         };
 
         xhr.onload = function() {
+            runButton.disabled = false;
             if (xhr.status === 200) {
             } else {
                 document.getElementById("output").textContent += "Error: " + xhr.statusText;
