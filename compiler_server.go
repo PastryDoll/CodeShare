@@ -9,6 +9,10 @@ import (
 )
 
 func main() {
+
+	//
+	//// Serving directory
+	//
 	fileServer := http.FileServer(http.Dir("."))
 	http.Handle("/", fileServer)
 
@@ -42,13 +46,12 @@ func main() {
 
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusOK)
-
 			scanner := bufio.NewScanner(stdout)
 			for scanner.Scan() {
 				m := scanner.Text()
 				log.Printf("Out: %s", m)
 				_, _ = w.Write([]byte(m + "\n"))
-				flusher.Flush()
+				flusher.Flush() // When FLush is present ResponseWriter sets the Transfer-Encoding to chunked
 			}
 			if err := cmd.Wait(); err != nil {
 				log.Printf("Command error: %v", err)
@@ -65,4 +68,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not start server: %s\n", err.Error())
 	}
+
 }
