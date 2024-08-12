@@ -11,15 +11,52 @@ document.addEventListener("DOMContentLoaded", function()
     });
 
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    console.log(editor);
+
+    var socket = new WebSocket("ws://localhost:8080/ws");
+    var clientID = null;
+
+    socket.onmessage = function(event) {
+        var data = JSON.parse(event.data);
+        if (data.your_client_id) {
+            clientID = data.your_client_id;
+            console.log("Your id is", clientID);
+        } else {
+            var message = JSON.parse(event.data);
+            console.log("Got message: ", message.code)
+            editor.setValue(message.code);
+            // editor.setCursor({line: 1, ch: 5})
+        }
+    };
     
+    socket.onopen = function() {
+        console.log("Connected to WebSocket server");
+    };
+    
+    socket.onerror = function(error) {
+        console.error("WebSocket error:", error);
+    };
+    
+    socket.onclose = function() {
+        console.log("WebSocket connection closed");
+    };
+    
+    editor.on("change", function(instance, changeObj) {
+        console.log(changeObj)
+        var code = instance.getValue();
+        if (clientID && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
+            console.log("Sending message")
+            socket.send(JSON.stringify({ code: code, client_id: clientID }));
+        }
+    });
+
+    var outputElement = document.getElementById("output");
     // 
     //// Effect of pressing the run code button. This should send the code to the server and. receive the 
     //   output stream and update the output window. 
-    
     document.getElementById("runButton").addEventListener("click", function() {
         runButton.disabled = true;
         var code = editor.getValue();
-        var outputElement = document.getElementById("output");
         outputElement.textContent = "Processing...";
 
         // @NOTE So I tried XHR but... It works for Safari, but not for Chrome.. It looks like the problem is that Chrome

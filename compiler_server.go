@@ -3,9 +3,26 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os/exec"
+	"strconv"
+	"sync"
+
+	"golang.org/x/net/websocket"
+)
+
+type Message struct {
+	Code     string `json:"code"`
+	ClientID string `json:"client_id"`
+}
+
+var (
+	clients       = make(map[*websocket.Conn]string) // Connected clients with IDs
+	broadcast     = make(chan Message)               // Broadcast channel
+	mutex         sync.Mutex                         // Mutex to protect shared resources
+	clientCounter = 0                                // Counter for generating unique client IDs
 )
 
 func main() {
@@ -13,6 +30,9 @@ func main() {
 	//
 	//// Serving directory
 	//
+	http.Handle("/ws", websocket.Handler(handleConnections))
+	go handleMessages()
+
 	fileServer := http.FileServer(http.Dir("."))
 	http.Handle("/", fileServer)
 
@@ -69,4 +89,71 @@ func main() {
 		log.Fatalf("Could not start server: %s\n", err.Error())
 	}
 
+}
+
+func handleConnections(ws *websocket.Conn) {
+	// Generate a unique client ID
+	clientID := generateClientID()
+
+	// Register new client
+	mutex.Lock()
+	clients[ws] = clientID
+	mutex.Unlock()
+
+	log.Printf("Client %s connected", clientID)
+
+	// Send the client ID to the client
+	if err := websocket.JSON.Send(ws, map[string]string{"your_client_id": clientID}); err != nil {
+		log.Printf("Error sending client ID: %v", err)
+		ws.Close()
+		return
+	}
+
+	// Receive messages from the client
+	for {
+		var msg Message
+		if err := websocket.JSON.Receive(ws, &msg); err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Printf("Error receiving message: %v", err)
+			break
+		}
+
+		// Send the received message to the broadcast channel
+		broadcast <- msg
+		log.Printf("Message: %s, by %s", msg, clientID)
+	}
+
+	// Unregister the client
+	mutex.Lock()
+	delete(clients, ws)
+	mutex.Unlock()
+	ws.Close()
+}
+
+// Handle messages from the broadcast channel
+func handleMessages() {
+	for {
+		// Grab the next message from the broadcast channel
+		msg := <-broadcast
+
+		// Send the message to all clients except the sender
+		mutex.Lock()
+		for client, clientID := range clients {
+			if clientID != msg.ClientID {
+				if err := websocket.JSON.Send(client, msg); err != nil {
+					log.Printf("Error sending message: %v", err)
+					client.Close()
+					delete(clients, client)
+				}
+			}
+		}
+		mutex.Unlock()
+	}
+}
+
+func generateClientID() string {
+	clientCounter++
+	return "client_" + strconv.Itoa(clientCounter)
 }
