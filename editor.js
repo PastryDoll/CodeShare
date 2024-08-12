@@ -11,11 +11,11 @@ document.addEventListener("DOMContentLoaded", function()
     });
 
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
-
-// 
-//// Effect of pressing the run code button. This should send the code to the server and. receive the 
-//   output stream and update the output window. 
-
+    
+    // 
+    //// Effect of pressing the run code button. This should send the code to the server and. receive the 
+    //   output stream and update the output window. 
+    
     document.getElementById("runButton").addEventListener("click", function() {
         runButton.disabled = true;
         var code = editor.getValue();
@@ -60,7 +60,7 @@ document.addEventListener("DOMContentLoaded", function()
 
             return readStream();
         })
-        .then(runButton.disabled = false)
+        .then(() => runButton.disabled = false)
         .catch(error => {
             document.getElementById("output").textContent = "Error: " + error.message;
         });
