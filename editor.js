@@ -2,26 +2,42 @@ document.addEventListener("DOMContentLoaded", function()
 {
 // 
 //// Set default code editor theme and params.
-// 
-    var editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
+//  
+    var editor_element = document.getElementById("editor")
+    var editor = CodeMirror.fromTextArea(editor_element, {
         mode: "python", 
         lineNumbers: true, 
         theme: "dracula", 
         tabSize: 4 
     });
-
+    
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    editor.setSize("100%","100%");
     console.log(editor);
 
     var socket = new WebSocket("ws://localhost:8080/ws");
     var clientID = null;
+    var savedPassword = localStorage.getItem('adminPassword');
+    console.log("Your saved password is:", savedPassword);
 
-    socket.onmessage = function(event) {
+    socket.onmessage = function(event) 
+    {
         var data = JSON.parse(event.data);
-        if (data.your_client_id) {
+        if (data.your_client_id) 
+        {
             clientID = data.your_client_id;
             console.log("Your id is", clientID);
-        } else {
+            if (data.password) 
+            {
+                console.log("You are the admin. Your password is:", data.password);
+                localStorage.setItem('adminPassword', data.password);
+                document.getElementById('adminPassword').value = data.password;
+                showAdminNotification();
+                document.getElementById('passwordDisplay').textContent = data.password;
+            }
+        } 
+        else 
+        {
             var message = JSON.parse(event.data);
             console.log("Got message: ", message.code)
             editor.setValue(message.code);
@@ -31,6 +47,10 @@ document.addEventListener("DOMContentLoaded", function()
     
     socket.onopen = function() {
         console.log("Connected to WebSocket server");
+        if (savedPassword) 
+        {
+            sendPassword(savedPassword);
+        }
     };
     
     socket.onerror = function(error) {
@@ -103,3 +123,40 @@ document.addEventListener("DOMContentLoaded", function()
         });
     });
 });
+
+function sendPassword(password) {
+    var pass = password || document.getElementById('adminPassword').value;
+    
+    if (pass) {
+        socket.send(JSON.stringify({
+            client_id: clientID,
+            action: "authenticate",
+            password: pass
+        }));
+    }
+}
+
+function closeAdminMessage() {
+    document.getElementById('adminMessage').style.display = 'none';
+}
+function showAdminNotification() {
+    document.getElementById('adminMessage').style.display = 'block'; 
+    updateStatus(true, true); 
+    console.log("You are now the admin and editor!");
+}
+
+function updateStatus(isAdmin, isEditor) {
+    var statusCircleAdmin = document.getElementById('adminStatus');
+    var statusCircleEditor = document.getElementById('editorStatus');
+
+    if (isAdmin) {
+        statusCircleAdmin.style.backgroundColor = 'green';
+    } else {
+        statusCircleAdmin.style.backgroundColor = 'red';
+    }
+    if (isEditor) {
+        statusCircleEditor.style.backgroundColor = 'green';
+    } else {
+        statusCircleEditor.style.backgroundColor = 'red';
+    }
+}

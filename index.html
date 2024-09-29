@@ -3,41 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeMirror Python Editor with Output</title>
+    <title>Resizable Panels with Full-Height Editor and Output</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
     <style>
-        #editor {
-            height: 300px;
-            border: 1px solid #ddd;
-            font-size: 14px;
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-        #output {
-            height: 200px;
-            border: 1px solid #ddd;
-            margin-top: 10px;
+
+        header {
+            display: flex;
+            justify-content: space-between;
             padding: 10px;
-            font-size: 14px;
-            white-space: pre-wrap; 
-            background-color: #f4f4f4;
-            overflow-y: auto; 
+            background-color: #f0f0f0;
         }
-        #runButton {
-            margin-top: 10px;
+
+        #mainContent {
+            display: grid;
+            grid-template-columns: auto  1fr auto;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #adminPanel {
+            padding: 20px;
+            border-right: 1px solid #ccc;
+            overflow: auto;
+            resize: horizontal; 
+            min-width: 150px;
+            max-width: 500px;
+        }
+
+        #clientsPanelContainer {
+            display: flex;
+            /* flex-direction: row-reverse;  */
+            width: fit-content;
+        }
+
+        #clientsPanel {
+            padding: 20px;
+            border-left: 1px solid #ccc;
+            overflow: auto;
+            min-width: 150px;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            resize: horizontal; /* Still allow resizing */
+            overflow: hidden;
+        }
+
+        #editorContainer {
+            display: flex;
+            flex-direction: column;
+            padding: 0px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        #editor {
+            flex: 1;
+            border: 0px solid #ddd;
+            font-size: 14px;
+            margin-bottom: 10px;
+            height: 80%;
+        }
+
+        #output {
+            height: 20%;
+            border: 0px solid #ddd;
+            padding: 0px;
+            font-size: 14px;
+            background-color: #f4f4f4;
+            overflow-y: auto;
+        }
+
+        /* Footer section to keep everything visible */
+        footer {
+            padding: 10px;
+            background-color: #89aaf2;
         }
     </style>
 </head>
 <body>
-    <h1>Write Your Code:</h1>
-    <textarea id="editor"></textarea>
-    <button id="runButton">Run Code</button>
-    <span id="output-label" class="output-label">Output Window:</span>
-    <pre id="output"></pre>
+    <header>
+        <div style="display: flex; align-items: center;">
+            <span>Editing Status: </span>
+            <div id="editorStatus" style="width: 15px; height: 15px; border-radius: 50%; background-color: red; margin-left: 5px;"></div>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <span>Admin Status: </span>
+            <div id="adminStatus" style="width: 15px; height: 15px; border-radius: 50%; background-color: red; margin-left: 5px;"></div>
+        </div>
+    </header>
+
+    <div id="mainContent">
+        <div id="adminPanel">
+            <h2>Admin</h2>
+            <input type="text" id="adminPassword" placeholder="Enter admin password" />
+            <button onclick="sendPassword()">Send Password</button>
+            <div id="adminMessage" style="display: none; padding: 10px; background-color: #e0ffe0; border: 1px solid #00b300; margin-top: 10px; position: relative;">
+                <button id="closeAdminMessage" style="position: absolute; right: 10px; top: 5px;" onclick="closeAdminMessage()">X</button>
+                <strong>You are the admin!</strong><br />
+                Save your admin password!! <span id="passwordDisplay"></span>
+            </div>
+            <div id="adminDisplay">No admin yet...</div>
+        </div>
+
+        <div id="editorContainer">
+            <textarea id="editor"></textarea>
+            <button id="runButton">Run Code</button>
+            <span id="output-label" class="output-label">Output Window:</span>
+            <div id="output"></div>
+        </div>
+
+        <div id="clientsPanelContainer">
+            <div id="clientsPanel">
+                <h2>Connected Clients</h2>
+                <ul id="clientsList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <span>Footer Area (Optional)</span>
+    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.js"></script>
-    
+
     <script src="editor.js"></script>
 </body>
 </html>

@@ -14,33 +14,44 @@ import (
 )
 
 type Message struct {
-	Code     string `json:"code"`
-	ClientID string `json:"client_id"`
+	Code     string `json:"code,omitempty"`
+	ClientId string `json:"client_id,omitempty"`
+	Action   string `json:"action,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 var (
-	clients       = make(map[*websocket.Conn]string) // Connected clients with IDs
-	broadcast     = make(chan Message)               // Broadcast channel
-	mutex         sync.Mutex                         // Mutex to protect shared resources
-	clientCounter = 0                                // Counter for generating unique client IDs
+	clients       = make(map[*websocket.Conn]string)
+	broadcast     = make(chan Message)
+	mutex         sync.Mutex
+	clientCounter int    = 0
+	adminPassword string = "123"
+	adminId       string = ""
+	editorId      string = ""
 )
 
 func main() {
 
 	//
-	//// Serving directory
+	//// Serving Websocket
 	//
 	http.Handle("/ws", websocket.Handler(handleConnections))
 	go handleMessages()
 
+	//
+	//// Serving directory
+	//
 	fileServer := http.FileServer(http.Dir("."))
 	http.Handle("/", fileServer)
 
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
+
 			var req struct {
 				Code string `json:"code"`
 			}
+			log.Print("Execution requested!")
+
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "Invalid request", http.StatusBadRequest)
 				return
@@ -48,10 +59,13 @@ func main() {
 
 			cmd := exec.Command("python3", "-u", "-c", req.Code) // Use the -u flag to unbuffer Python output
 			stdout, err := cmd.StdoutPipe()
+
 			if err != nil {
 				http.Error(w, "Error creating output pipe", http.StatusInternalServerError)
 				return
 			}
+
+			log.Printf("Executing: %s", req.Code)
 
 			if err := cmd.Start(); err != nil {
 				http.Error(w, "Error starting command", http.StatusInternalServerError)
@@ -59,6 +73,7 @@ func main() {
 			}
 
 			flusher, ok := w.(http.Flusher)
+
 			if !ok {
 				http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 				return
@@ -88,22 +103,30 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not start server: %s\n", err.Error())
 	}
-
 }
 
 func handleConnections(ws *websocket.Conn) {
 	// Generate a unique client ID
-	clientID := generateClientID()
+	clientId := generateClientID()
+	responseData := map[string]string{
+		"your_client_id": clientId,
+	}
 
-	// Register new client
+	// Register new client and set admin
 	mutex.Lock()
-	clients[ws] = clientID
+	clients[ws] = clientId
+	if adminId == "" {
+		adminId = clientId
+		editorId = clientId
+		responseData["password"] = adminPassword
+		log.Printf("Client %s is now the admin", clientId)
+	}
 	mutex.Unlock()
 
-	log.Printf("Client %s connected", clientID)
+	log.Printf("Client %s connected", clientId)
 
 	// Send the client ID to the client
-	if err := websocket.JSON.Send(ws, map[string]string{"your_client_id": clientID}); err != nil {
+	if err := websocket.JSON.Send(ws, responseData); err != nil {
 		log.Printf("Error sending client ID: %v", err)
 		ws.Close()
 		return
@@ -120,28 +143,40 @@ func handleConnections(ws *websocket.Conn) {
 			break
 		}
 
-		// Send the received message to the broadcast channel
-		broadcast <- msg
-		log.Printf("Message: %s, by %s", msg, clientID)
+		if msg.Action == "authenticate" {
+			mutex.Lock()
+			if msg.Password == adminPassword {
+				adminId = msg.ClientId
+				log.Printf("Client %s authenticated as admin", msg.ClientId)
+
+			} else {
+				log.Printf("Client %s failed to authenticate with password: %s", msg.ClientId, msg.Password)
+			}
+			mutex.Unlock()
+
+		} else {
+			if msg.ClientId == adminId {
+				broadcast <- msg
+				log.Printf("Code update: %s, by %s", msg.Code, msg.ClientId)
+			} else {
+				log.Printf("Unauthorized attempt to send code by client %s", msg.ClientId)
+			}
+		}
 	}
 
-	// Unregister the client
 	mutex.Lock()
 	delete(clients, ws)
 	mutex.Unlock()
 	ws.Close()
 }
 
-// Handle messages from the broadcast channel
 func handleMessages() {
 	for {
-		// Grab the next message from the broadcast channel
 		msg := <-broadcast
 
-		// Send the message to all clients except the sender
 		mutex.Lock()
-		for client, clientID := range clients {
-			if clientID != msg.ClientID {
+		for client, clientId := range clients {
+			if clientId != msg.ClientId {
 				if err := websocket.JSON.Send(client, msg); err != nil {
 					log.Printf("Error sending message: %v", err)
 					client.Close()
