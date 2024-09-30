@@ -31,12 +31,25 @@
         }
 
         #adminPanel {
+            width: 200px;
             padding: 20px;
-            border-right: 1px solid #ccc;
+            border-right: 0px solid hsl(0, 0%, 80%);
             overflow: auto;
-            resize: horizontal; 
             min-width: 150px;
             max-width: 500px;
+            position: relative;
+        }
+
+        #resizer-right{
+            width: 10px;
+            height: 100%;
+            border-radius: 0%;
+            background: rgb(3, 3, 3);
+            border: 0px solid #4286f4;
+            position: absolute;
+            left: calc(100% - 10px);
+            top: 0px;
+            cursor: ew-resize; /*resizer cursor*/
         }
 
         #clientsPanelContainer {
@@ -104,6 +117,7 @@
 
     <div id="mainContent">
         <div id="adminPanel">
+            <div id='resizer-right'></div>
             <h2>Admin</h2>
             <input type="text" id="adminPassword" placeholder="Enter admin password" />
             <button onclick="sendPassword()">Send Password</button>
