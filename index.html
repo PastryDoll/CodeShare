@@ -40,7 +40,7 @@
             position: relative;
         }
 
-        #resizer-right{
+        #resizer-left{
             width: 10px;
             height: 100%;
             border-radius: 0%;
@@ -49,26 +49,32 @@
             position: absolute;
             left: calc(100% - 10px);
             top: 0px;
-            cursor: ew-resize; /*resizer cursor*/
-        }
-
-        #clientsPanelContainer {
-            display: flex;
-            /* flex-direction: row-reverse;  */
-            width: fit-content;
+            cursor: ew-resize; 
         }
 
         #clientsPanel {
             padding: 20px;
-            border-left: 1px solid #ccc;
+            width: 200px;
+            border-left: 0px solid #ccc;
             overflow: auto;
             min-width: 150px;
             max-width: 500px;
             display: flex;
             flex-direction: column;
             position: relative;
-            resize: horizontal; /* Still allow resizing */
             overflow: hidden;
+        }
+
+        #resizer-right{
+            width: 10px;
+            height: 100%;
+            border-radius: 0%;
+            background: rgb(3, 3, 3);
+            border: 0px solid #4286f4;
+            position: absolute;
+            left: 0;
+            top: 0px;
+            cursor: ew-resize;
         }
 
         #editorContainer {
@@ -117,7 +123,7 @@
 
     <div id="mainContent">
         <div id="adminPanel">
-            <div id='resizer-right'></div>
+            <div id='resizer-left'></div>
             <h2>Admin</h2>
             <input type="text" id="adminPassword" placeholder="Enter admin password" />
             <button onclick="sendPassword()">Send Password</button>
@@ -136,11 +142,10 @@
             <div id="output"></div>
         </div>
 
-        <div id="clientsPanelContainer">
-            <div id="clientsPanel">
-                <h2>Connected Clients</h2>
-                <ul id="clientsList"></ul>
-            </div>
+        <div id="clientsPanel">
+            <div id='resizer-right'></div>
+            <h2>Connected Clients</h2>
+            <ul id="clientsList"></ul>
         </div>
     </div>
 

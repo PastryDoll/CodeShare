@@ -1,5 +1,66 @@
 document.addEventListener("DOMContentLoaded", function() 
 {
+//
+//// Divs control
+//
+
+    //Admin Panel
+    {
+        const adminPanelDiv = document.getElementById('adminPanel');
+        const adminPanelResizer = document.getElementById('resizer-left')
+    
+        adminPanelResizer.addEventListener('mousedown', function(e) {
+            e.preventDefault()
+            window.addEventListener('mousemove', resizeLeft)
+            window.addEventListener('mouseup', stopResizeLeft)
+        })
+    
+        function resizeLeft(e) {
+            const adminPanelComputedStyle = window.getComputedStyle(adminPanelDiv);
+            const adminPanelResizerComputedStyle = window.getComputedStyle(adminPanelResizer);
+            const padding = parseInt(adminPanelComputedStyle.paddingLeft); 
+            const resizerWidth = parseInt(adminPanelResizerComputedStyle.width);
+    
+            adminPanelDiv.style.width = e.pageX - padding - resizerWidth + 'px';
+        }
+          
+        function stopResizeLeft() {
+            window.removeEventListener('mousemove', resizeLeft)
+        }
+    }
+
+    // Client Panel
+    {
+        const clientPanelDiv = document.getElementById('clientsPanel');
+        const clientPanelResizer = document.getElementById('resizer-right');
+        
+        let startX;
+        let startWidth;
+        
+        clientPanelResizer.addEventListener('mousedown', (e) => {
+            startX = e.clientX;
+            startWidth = parseInt(document.defaultView.getComputedStyle(clientPanelDiv).width, 10);
+            document.documentElement.addEventListener('mousemove', resizePanel);
+            document.documentElement.addEventListener('mouseup', stopResize);
+        });
+        
+        function resizePanel(e) {
+            const diffX = startX - e.clientX; 
+            const newWidth = startWidth + diffX; 
+        
+            if (newWidth >= 150 && newWidth <= 500) {
+                clientPanelDiv.style.width = `${newWidth}px`;
+            }
+        }
+    }
+    
+    // Function to stop resizing
+    function stopResize() {
+        document.documentElement.removeEventListener('mousemove', resizePanel);
+        document.documentElement.removeEventListener('mouseup', stopResize);
+    }
+    
+
 // 
 //// Set default code editor theme and params.
 //  
