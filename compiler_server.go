@@ -109,8 +109,8 @@ func handleConnections(ws *websocket.Conn) {
 	// Generate a unique client ID
 	clientId := generateClientID()
 	responseData := map[string]string{
-		"your_client_id": clientId,
-	}
+		"ClientId": clientId,
+		"Action":   "hello"}
 
 	// Register new client and set admin
 	mutex.Lock()
@@ -118,7 +118,7 @@ func handleConnections(ws *websocket.Conn) {
 	if adminId == "" {
 		adminId = clientId
 		editorId = clientId
-		responseData["password"] = adminPassword
+		responseData["Password"] = adminPassword
 		log.Printf("Client %s is now the admin", clientId)
 	}
 	mutex.Unlock()
@@ -144,15 +144,22 @@ func handleConnections(ws *websocket.Conn) {
 		}
 
 		if msg.Action == "authenticate" {
-			mutex.Lock()
 			if msg.Password == adminPassword {
+				mutex.Lock()
 				adminId = msg.ClientId
+				mutex.Unlock()
 				log.Printf("Client %s authenticated as admin", msg.ClientId)
-
+				successMsg := map[string]string{
+					"ClientId": msg.ClientId,
+					"Action":   "authenticated"}
+				if err := websocket.JSON.Send(ws, successMsg); err != nil {
+					log.Printf("Error sending client ID: %v", err)
+					ws.Close()
+					return
+				}
 			} else {
 				log.Printf("Client %s failed to authenticate with password: %s", msg.ClientId, msg.Password)
 			}
-			mutex.Unlock()
 
 		} else {
 			if msg.ClientId == adminId {

@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", function() 
 {
+/////////UI-STUFF////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //// Divs control
 //
@@ -54,12 +55,12 @@ document.addEventListener("DOMContentLoaded", function()
         }
     }
     
-    // Function to stop resizing
     function stopResize() {
         document.documentElement.removeEventListener('mousemove', resizePanel);
         document.documentElement.removeEventListener('mouseup', stopResize);
     }
     
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 
 //// Set default code editor theme and params.
@@ -84,34 +85,38 @@ document.addEventListener("DOMContentLoaded", function()
     socket.onmessage = function(event) 
     {
         var data = JSON.parse(event.data);
-        if (data.your_client_id) 
+        console.log("Got message: ", data)
+        
+        if (data.Action == "authenticated")
         {
-            clientID = data.your_client_id;
+            showAdminNotification();
+        }
+        else if (data.Action == "hello") 
+        {
+            clientID = data.ClientId;
             console.log("Your id is", clientID);
-            if (data.password) 
+            if (data.Password) 
             {
-                console.log("You are the admin. Your password is:", data.password);
-                localStorage.setItem('adminPassword', data.password);
-                document.getElementById('adminPassword').value = data.password;
-                showAdminNotification();
-                document.getElementById('passwordDisplay').textContent = data.password;
+                console.log("You are the admin. Your password is:", data.Password);
+                localStorage.setItem('adminPassword', data.Password);
+                document.getElementById('adminPassword').value = data.Password;
+                document.getElementById('passwordDisplay').textContent = data.Password;
             }
+            if (savedPassword) 
+            {
+                sendPassword(savedPassword, clientID, socket);
+            }
+
         } 
         else 
         {
-            var message = JSON.parse(event.data);
-            console.log("Got message: ", message.code)
-            editor.setValue(message.code);
+            editor.setValue(data.code);
             // editor.setCursor({line: 1, ch: 5})
         }
     };
     
     socket.onopen = function() {
         console.log("Connected to WebSocket server");
-        if (savedPassword) 
-        {
-            sendPassword(savedPassword);
-        }
     };
     
     socket.onerror = function(error) {
@@ -183,12 +188,16 @@ document.addEventListener("DOMContentLoaded", function()
             document.getElementById("output").textContent = "Error: " + error.message;
         });
     });
+
+    document.getElementById("sendPassword").addEventListener("click", function() {
+    sendPassword(null, clientID, socket)
+    })
 });
 
-function sendPassword(password) {
+function sendPassword(password,clientID, socket) {
     var pass = password || document.getElementById('adminPassword').value;
     
-    if (pass) {
+    if (pass && socket) {
         socket.send(JSON.stringify({
             client_id: clientID,
             action: "authenticate",
