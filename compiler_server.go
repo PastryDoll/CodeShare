@@ -27,6 +27,7 @@ var (
 	clientCounter int    = 0
 	adminPassword string = "123"
 	adminId       string = ""
+	adminWs       *websocket.Conn
 	editorId      string = ""
 )
 
@@ -144,23 +145,43 @@ func handleConnections(ws *websocket.Conn) {
 		}
 
 		if msg.Action == "authenticate" {
-			if msg.Password == adminPassword {
-				mutex.Lock()
-				adminId = msg.ClientId
-				mutex.Unlock()
-				log.Printf("Client %s authenticated as admin", msg.ClientId)
-				successMsg := map[string]string{
-					"ClientId": msg.ClientId,
-					"Action":   "authenticated"}
-				if err := websocket.JSON.Send(ws, successMsg); err != nil {
-					log.Printf("Error sending client ID: %v", err)
-					ws.Close()
-					return
-				}
-			} else {
+			if msg.Password != adminPassword {
 				log.Printf("Client %s failed to authenticate with password: %s", msg.ClientId, msg.Password)
+				continue
 			}
 
+			// Deauth previous a amin
+			if adminId != msg.ClientId {
+				log.Printf("Client %s deauthenticated as admin", adminId)
+				deauthMsg := map[string]string{
+					"ClientId": msg.ClientId,
+					"Action":   "deauthenticated"}
+
+				mutex.Lock() // Is it safe to send to the same WS from multiple threads ?
+				if err := websocket.JSON.Send(adminWs, deauthMsg); err != nil {
+					log.Printf("Error sending client deauthentication: %v", err)
+				}
+				mutex.Unlock()
+			}
+
+			// Auth Current admin
+			mutex.Lock()
+			adminId = msg.ClientId
+			editorId = msg.ClientId
+			adminWs = ws
+			mutex.Unlock()
+
+			log.Printf("Client %s authenticated as admin", msg.ClientId)
+			successMsg := map[string]string{
+				"ClientId": msg.ClientId,
+				"Action":   "authenticated"}
+			if err := websocket.JSON.Send(ws, successMsg); err != nil {
+				log.Printf("Error sending client authentication: %v", err)
+				ws.Close()
+				return
+			}
+		} else if msg.Action == "transfer" {
+			continue
 		} else {
 			if msg.ClientId == adminId {
 				broadcast <- msg

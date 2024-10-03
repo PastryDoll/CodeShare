@@ -89,7 +89,11 @@ document.addEventListener("DOMContentLoaded", function()
         
         if (data.Action == "authenticated")
         {
-            showAdminNotification();
+            showAdminNotification("You are now the admin and editor!", true,true);
+        }
+        else if (data.Action == "deauthenticated")
+        {
+            showAdminNotification("You are not admin anymore", false,false);
         }
         else if (data.Action == "hello") 
         {
@@ -100,7 +104,6 @@ document.addEventListener("DOMContentLoaded", function()
                 console.log("You are the admin. Your password is:", data.Password);
                 localStorage.setItem('adminPassword', data.Password);
                 document.getElementById('adminPassword').value = data.Password;
-                document.getElementById('passwordDisplay').textContent = data.Password;
             }
             if (savedPassword) 
             {
@@ -209,10 +212,24 @@ function sendPassword(password,clientID, socket) {
 function closeAdminMessage() {
     document.getElementById('adminMessage').style.display = 'none';
 }
-function showAdminNotification() {
-    document.getElementById('adminMessage').style.display = 'block'; 
-    updateStatus(true, true); 
-    console.log("You are now the admin and editor!");
+function showAdminNotification(text,isAdmin, isEditor) {
+    var adminMessageDiv = document.getElementById('adminMessage');
+    adminMessageDiv.style.display = 'block'; 
+
+    if (isAdmin) {
+        adminMessageDiv.style.backgroundColor = '#e0ffe0'; 
+        adminMessageDiv.style.borderColor = '#00b300';     
+    }
+    else {
+        adminMessageDiv.style.backgroundColor = '#ee0000'; 
+        adminMessageDiv.style.borderColor = '#ee0000';     
+    }
+    adminMessageDiv.innerHTML = `
+    <button id="closeAdminMessage" onclick="closeAdminMessage()">X</button>
+    <div class="messageText">${text}</div> <!-- Use a separate div for text -->
+    `; 
+    updateStatus(isAdmin, isEditor); 
+    console.log(text);
 }
 
 function updateStatus(isAdmin, isEditor) {

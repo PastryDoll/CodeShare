@@ -107,6 +107,35 @@
             padding: 10px;
             background-color: #89aaf2;
         }
+
+        #adminMessage {
+            display: none; /* Initially hidden */
+            padding: 10px; /* Padding around the message */
+            border: 1px solid; /* Border will be set dynamically */
+            margin-top: 10px;
+            position: relative; /* Positioning context for the button */
+        }
+
+        /* Style for the close button */
+        #closeAdminMessage {
+            position: absolute; /* Position relative to the parent */
+            right: 4px; /* Distance from the right */
+            top: 3px; /* Distance from the top */
+            z-index: 10; /* Ensure button is on top */
+            background-color: transparent; /* Transparent background */
+            color: #ff0000; /* Red text */
+            border: none;
+            font-size: 16px; /* Smaller font size */
+            cursor: pointer; /* Pointer on hover */
+            padding: 0; /* Remove default padding */
+            margin: 0; /* Remove default margin */
+            line-height: 1; /* Align with text */
+        }
+
+        /* Style for the message text */
+        .messageText {
+            margin-top: 5px; /* Add margin to ensure text is below the button */
+        }
     </style>
 </head>
 <body>
@@ -129,10 +158,7 @@
             <button id="sendPassword">Send Password</button>
             <div id="adminMessage" style="display: none; padding: 10px; background-color: #e0ffe0; border: 1px solid #00b300; margin-top: 10px; position: relative;">
                 <button id="closeAdminMessage" style="position: absolute; right: 10px; top: 5px;" onclick="closeAdminMessage()">X</button>
-                <strong>You are the admin!</strong><br />
-                Save your admin password!! <span id="passwordDisplay"></span>
             </div>
-            <div id="adminDisplay">No admin yet...</div>
         </div>
 
         <div id="editorContainer">
