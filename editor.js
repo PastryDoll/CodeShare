@@ -80,6 +80,7 @@ document.addEventListener("DOMContentLoaded", function()
     var socket = new WebSocket("ws://localhost:8080/ws");
     var clientID = null;
     var savedPassword = localStorage.getItem('adminPassword');
+    var clients = " ";
     console.log("Your saved password is:", savedPassword);
 
     socket.onmessage = function(event) 
@@ -89,29 +90,35 @@ document.addEventListener("DOMContentLoaded", function()
         
         if (data.Action == "authenticated")
         {
-            showAdminNotification("You are now the admin and editor!", true,true);
+            if (data.ClientId == clientID) {showAdminNotification("You are now the admin and editor!", true,true)};
         }
         else if (data.Action == "deauthenticated")
         {
-            showAdminNotification("You are not admin anymore", false,false);
+            if (data.ClientId == clientID) {showAdminNotification("You are not admin anymore", false,false)};
         }
         else if (data.Action == "hello") 
         {
-            clientID = data.ClientId;
-            console.log("Your id is", clientID);
-            if (data.Password) 
+            let clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            console.log("Clients:", clients)
+            populateClients(clients);
+            if (!clientID)
             {
-                console.log("You are the admin. Your password is:", data.Password);
-                localStorage.setItem('adminPassword', data.Password);
-                document.getElementById('adminPassword').value = data.Password;
-            }
-            if (savedPassword) 
-            {
-                sendPassword(savedPassword, clientID, socket);
+                clientID = data.ClientId;
+                console.log("Your id is", clientID);
+                if (data.Password) 
+                {
+                    console.log("Your password is:", data.Password);
+                    localStorage.setItem('adminPassword', data.Password);
+                    document.getElementById('adminPassword').value = data.Password;
+                }
+                if (savedPassword) 
+                {
+                    sendPassword(savedPassword, clientID, socket);
+                }
             }
 
         } 
-        else 
+        else if (data.Action == "code")
         {
             editor.setValue(data.code);
             // editor.setCursor({line: 1, ch: 5})
@@ -135,7 +142,7 @@ document.addEventListener("DOMContentLoaded", function()
         var code = instance.getValue();
         if (clientID && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
             console.log("Sending message")
-            socket.send(JSON.stringify({ code: code, client_id: clientID }));
+            socket.send(JSON.stringify({ Code: code, ClientId: clientID }));
         }
     });
 
@@ -199,12 +206,12 @@ document.addEventListener("DOMContentLoaded", function()
 
 function sendPassword(password,clientID, socket) {
     var pass = password || document.getElementById('adminPassword').value;
-    
+    console.log("Sending password to server, my id is: ", clientID);
     if (pass && socket) {
         socket.send(JSON.stringify({
-            client_id: clientID,
-            action: "authenticate",
-            password: pass
+            ClientId: clientID,
+            Action: "authenticate",
+            Password: pass
         }));
     }
 }
@@ -246,4 +253,26 @@ function updateStatus(isAdmin, isEditor) {
     } else {
         statusCircleEditor.style.backgroundColor = 'red';
     }
+}
+
+function populateClients(clients) {
+    const clientsList = document.getElementById('clientsList');
+    clientsList.innerHTML = ''; 
+    const clientsList_ids = clients.split(",")
+    clientsList_ids.forEach((client, index) => {
+        const li = document.createElement('li');
+        const label = document.createElement('label');
+        label.innerText = client;
+
+        const radioButton = document.createElement('input');
+        radioButton.type = 'radio';
+        radioButton.name = 'clientToggle'; 
+        radioButton.value = client;
+        radioButton.id = `client-${index}`;
+
+        li.appendChild(radioButton);
+        li.appendChild(label);
+
+        clientsList.appendChild(li);
+    });
 }

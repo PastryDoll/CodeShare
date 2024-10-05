@@ -8,16 +8,18 @@ import (
 	"net/http"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 
 	"golang.org/x/net/websocket"
 )
 
 type Message struct {
-	Code     string `json:"code,omitempty"`
-	ClientId string `json:"client_id,omitempty"`
-	Action   string `json:"action,omitempty"`
-	Password string `json:"password,omitempty"`
+	Code     string `json:"Code,omitempty"`
+	ClientId string `json:"ClientId,omitempty"`
+	Action   string `json:"Action,omitempty"`
+	Password string `json:"Password,omitempty"`
+	Clients  string `json:"Clients,omitempty"`
 }
 
 var (
@@ -109,29 +111,35 @@ func main() {
 func handleConnections(ws *websocket.Conn) {
 	// Generate a unique client ID
 	clientId := generateClientID()
-	responseData := map[string]string{
-		"ClientId": clientId,
-		"Action":   "hello"}
+
+	var msg Message
+	msg.ClientId = clientId
+	msg.Action = "hello"
+
+	var clientIDs []string
+	for _, clientID := range clients {
+		clientIDs = append(clientIDs, clientID)
+	}
+	msg.Clients = strings.Join(clientIDs, ", ")
 
 	// Register new client and set admin
 	mutex.Lock()
 	clients[ws] = clientId
-	if adminId == "" {
+	// If new client is admin we send the password, else we broadcast new client to everyone
+	if adminId != "" {
+		broadcast <- msg
+	} else {
 		adminId = clientId
 		editorId = clientId
-		responseData["Password"] = adminPassword
+		msg.Password = adminPassword
 		log.Printf("Client %s is now the admin", clientId)
+		if err := websocket.JSON.Send(ws, msg); err != nil {
+			log.Printf("Error sending client authentication: %v", err)
+		}
 	}
 	mutex.Unlock()
 
 	log.Printf("Client %s connected", clientId)
-
-	// Send the client ID to the client
-	if err := websocket.JSON.Send(ws, responseData); err != nil {
-		log.Printf("Error sending client ID: %v", err)
-		ws.Close()
-		return
-	}
 
 	// Receive messages from the client
 	for {
@@ -144,17 +152,21 @@ func handleConnections(ws *websocket.Conn) {
 			break
 		}
 
+		log.Printf("Received message: %s", msg)
+
 		if msg.Action == "authenticate" {
+
+			// Not right password
 			if msg.Password != adminPassword {
 				log.Printf("Client %s failed to authenticate with password: %s", msg.ClientId, msg.Password)
 				continue
 			}
 
-			// Deauth previous a amin
-			if adminId != msg.ClientId {
-				log.Printf("Client %s deauthenticated as admin", adminId)
+			// Deauth previous a admin
+			if adminId != msg.ClientId && adminId != "" {
+				log.Printf("Client %s deauthenticated as admin, new admin is %s", adminId, msg.ClientId)
 				deauthMsg := map[string]string{
-					"ClientId": msg.ClientId,
+					"ClientId": adminId,
 					"Action":   "deauthenticated"}
 
 				mutex.Lock() // Is it safe to send to the same WS from multiple threads ?
@@ -162,6 +174,7 @@ func handleConnections(ws *websocket.Conn) {
 					log.Printf("Error sending client deauthentication: %v", err)
 				}
 				mutex.Unlock()
+
 			}
 
 			// Auth Current admin
@@ -204,7 +217,15 @@ func handleMessages() {
 
 		mutex.Lock()
 		for client, clientId := range clients {
-			if clientId != msg.ClientId {
+			if msg.Action == "Code" {
+				if clientId != msg.ClientId {
+					if err := websocket.JSON.Send(client, msg); err != nil {
+						log.Printf("Error sending message: %v", err)
+						client.Close()
+						delete(clients, client)
+					}
+				}
+			} else {
 				if err := websocket.JSON.Send(client, msg); err != nil {
 					log.Printf("Error sending message: %v", err)
 					client.Close()
