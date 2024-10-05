@@ -116,19 +116,25 @@ func handleConnections(ws *websocket.Conn) {
 	msg.ClientId = clientId
 	msg.Action = "hello"
 
-	var clientIDs []string
-	for _, clientID := range clients {
-		clientIDs = append(clientIDs, clientID)
-	}
-	msg.Clients = strings.Join(clientIDs, ", ")
-
 	// Register new client and set admin
+	log.Printf("Client %s connected", clientId)
+
 	mutex.Lock()
 	clients[ws] = clientId
+	mutex.Unlock()
+
+	// Broadcast all clients
+	{
+		var clientIDs []string
+		for _, clientID := range clients {
+			clientIDs = append(clientIDs, clientID)
+		}
+		msg.Clients = strings.Join(clientIDs, ",")
+	}
+
 	// If new client is admin we send the password, else we broadcast new client to everyone
-	if adminId != "" {
-		broadcast <- msg
-	} else {
+	if adminId == "" {
+		mutex.Lock()
 		adminId = clientId
 		editorId = clientId
 		msg.Password = adminPassword
@@ -136,10 +142,10 @@ func handleConnections(ws *websocket.Conn) {
 		if err := websocket.JSON.Send(ws, msg); err != nil {
 			log.Printf("Error sending client authentication: %v", err)
 		}
+		mutex.Unlock()
+	} else {
+		broadcast <- msg
 	}
-	mutex.Unlock()
-
-	log.Printf("Client %s connected", clientId)
 
 	// Receive messages from the client
 	for {
@@ -208,6 +214,18 @@ func handleConnections(ws *websocket.Conn) {
 	mutex.Lock()
 	delete(clients, ws)
 	mutex.Unlock()
+	// Broadcast all clients
+	{
+		var msg Message
+		msg.Action = "byebye"
+		msg.ClientId = clientId
+		var clientIDs []string
+		for _, clientID := range clients {
+			clientIDs = append(clientIDs, clientID)
+		}
+		msg.Clients = strings.Join(clientIDs, ",")
+		broadcast <- msg
+	}
 	ws.Close()
 }
 

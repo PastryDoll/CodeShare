@@ -75,32 +75,32 @@ document.addEventListener("DOMContentLoaded", function()
     
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
     editor.setSize("100%","100%");
-    console.log(editor);
 
-    var socket = new WebSocket("ws://localhost:8080/ws");
-    var clientID = null;
-    var savedPassword = localStorage.getItem('adminPassword');
-    var clients = " ";
+    const socket = new WebSocket("ws://localhost:8080/ws");
+    const savedPassword = localStorage.getItem('adminPassword');
+    let clientID = null;
+    let clients = null;
+    let isAdmin = false;
     console.log("Your saved password is:", savedPassword);
 
     socket.onmessage = function(event) 
     {
-        var data = JSON.parse(event.data);
+        let data = JSON.parse(event.data);
+        
         console.log("Got message: ", data)
         
         if (data.Action == "authenticated")
         {
-            if (data.ClientId == clientID) {showAdminNotification("You are now the admin and editor!", true,true)};
+            if (data.ClientId == clientID) {showAdminNotification("You are now the admin and editor!", true,true); isAdmin = true; populateClients(clients, isAdmin);};
         }
         else if (data.Action == "deauthenticated")
         {
-            if (data.ClientId == clientID) {showAdminNotification("You are not admin anymore", false,false)};
+            if (data.ClientId == clientID) {showAdminNotification("You are not admin anymore", false,false); isAdmin = false; populateClients(clients, isAdmin);};
         }
         else if (data.Action == "hello") 
         {
-            let clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            console.log("Clients:", clients)
-            populateClients(clients);
+            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            populateClients(clients, isAdmin);
             if (!clientID)
             {
                 clientID = data.ClientId;
@@ -118,6 +118,11 @@ document.addEventListener("DOMContentLoaded", function()
             }
 
         } 
+        else if (data.Action == "byebye")
+        {
+            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            populateClients(clients);
+        }
         else if (data.Action == "code")
         {
             editor.setValue(data.code);
@@ -255,24 +260,36 @@ function updateStatus(isAdmin, isEditor) {
     }
 }
 
-function populateClients(clients) {
+function populateClients(clients,isAdmin) {
     const clientsList = document.getElementById('clientsList');
     clientsList.innerHTML = ''; 
     const clientsList_ids = clients.split(",")
+    console.log("Im admin? ",isAdmin,"client_list:", clientsList_ids, clients)
     clientsList_ids.forEach((client, index) => {
         const li = document.createElement('li');
         const label = document.createElement('label');
         label.innerText = client;
+        
+        if (isAdmin)
+        {
+            const radioButton = document.createElement('input');
+            radioButton.type = 'radio';
+            radioButton.name = 'clientToggle'; 
+            radioButton.value = client;
+            radioButton.id = `client-${index}`;
+    
+            radioButton.addEventListener('change', (event) => {
+                handleClientToggle(event.target.value); 
+            });
+            li.appendChild(radioButton);
+        }
 
-        const radioButton = document.createElement('input');
-        radioButton.type = 'radio';
-        radioButton.name = 'clientToggle'; 
-        radioButton.value = client;
-        radioButton.id = `client-${index}`;
-
-        li.appendChild(radioButton);
         li.appendChild(label);
 
         clientsList.appendChild(li);
     });
+}
+
+function handleClientToggle(selectedClient) {
+    console.log(`Client ${selectedClient} has been selected.`);
 }
