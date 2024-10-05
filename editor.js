@@ -1,3 +1,8 @@
+const socket = new WebSocket("ws://localhost:8080/ws");
+const savedPassword = localStorage.getItem('adminPassword');
+let password = null;
+let clientId = null;
+
 document.addEventListener("DOMContentLoaded", function() 
 {
 /////////UI-STUFF////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,9 +81,6 @@ document.addEventListener("DOMContentLoaded", function()
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
     editor.setSize("100%","100%");
 
-    const socket = new WebSocket("ws://localhost:8080/ws");
-    const savedPassword = localStorage.getItem('adminPassword');
-    let clientID = null;
     let clients = null;
     let isAdmin = false;
     console.log("Your saved password is:", savedPassword);
@@ -91,20 +93,20 @@ document.addEventListener("DOMContentLoaded", function()
         
         if (data.Action == "authenticated")
         {
-            if (data.ClientId == clientID) {showAdminNotification("You are now the admin and editor!", true,true); isAdmin = true; populateClients(clients, isAdmin);};
+            if (data.ClientId == clientId) {showAdminNotification("You are now the admin and editor!", true,true); isAdmin = true; populateClients(clients, isAdmin);};
         }
         else if (data.Action == "deauthenticated")
         {
-            if (data.ClientId == clientID) {showAdminNotification("You are not admin anymore", false,false); isAdmin = false; populateClients(clients, isAdmin);};
+            if (data.ClientId == clientId) {showAdminNotification("You are not admin anymore", false,false); isAdmin = false; populateClients(clients, isAdmin);};
         }
         else if (data.Action == "hello") 
         {
             clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
             populateClients(clients, isAdmin);
-            if (!clientID)
+            if (!clientId)
             {
-                clientID = data.ClientId;
-                console.log("Your id is", clientID);
+                clientId = data.ClientId;
+                console.log("Your id is", clientId);
                 if (data.Password) 
                 {
                     console.log("Your password is:", data.Password);
@@ -113,7 +115,7 @@ document.addEventListener("DOMContentLoaded", function()
                 }
                 if (savedPassword) 
                 {
-                    sendPassword(savedPassword, clientID, socket);
+                    sendPassword(savedPassword);
                 }
             }
 
@@ -122,6 +124,10 @@ document.addEventListener("DOMContentLoaded", function()
         {
             clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
             populateClients(clients);
+        }
+        else if (data.Action == "transfer")
+        {
+            if (data.TransferId == clientId) {setEditor(true);}
         }
         else if (data.Action == "code")
         {
@@ -145,9 +151,9 @@ document.addEventListener("DOMContentLoaded", function()
     editor.on("change", function(instance, changeObj) {
         console.log(changeObj)
         var code = instance.getValue();
-        if (clientID && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
+        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
             console.log("Sending message")
-            socket.send(JSON.stringify({ Code: code, ClientId: clientID }));
+            socket.send(JSON.stringify({ Code: code, ClientId: clientId }));
         }
     });
 
@@ -205,16 +211,17 @@ document.addEventListener("DOMContentLoaded", function()
     });
 
     document.getElementById("sendPassword").addEventListener("click", function() {
-    sendPassword(null, clientID, socket)
+    sendPassword(null)
     })
 });
 
-function sendPassword(password,clientID, socket) {
+function sendPassword(password) {
     var pass = password || document.getElementById('adminPassword').value;
-    console.log("Sending password to server, my id is: ", clientID);
+    password = pass;
+    console.log("Sending password", pass, "to server, my id is: ", clientId);
     if (pass && socket) {
         socket.send(JSON.stringify({
-            ClientId: clientID,
+            ClientId: clientId,
             Action: "authenticate",
             Password: pass
         }));
@@ -240,24 +247,29 @@ function showAdminNotification(text,isAdmin, isEditor) {
     <button id="closeAdminMessage" onclick="closeAdminMessage()">X</button>
     <div class="messageText">${text}</div> <!-- Use a separate div for text -->
     `; 
-    updateStatus(isAdmin, isEditor); 
+    setAdmin(isAdmin); 
+    setEditor(isEditor); 
     console.log(text);
 }
 
-function updateStatus(isAdmin, isEditor) {
-    var statusCircleAdmin = document.getElementById('adminStatus');
-    var statusCircleEditor = document.getElementById('editorStatus');
-
+function setAdmin(isAdmin){
+    let statusCircleAdmin = document.getElementById('adminStatus');
     if (isAdmin) {
         statusCircleAdmin.style.backgroundColor = 'green';
     } else {
         statusCircleAdmin.style.backgroundColor = 'red';
     }
+}
+
+function setEditor(isEditor){
+    let statusCircleEditor = document.getElementById('editorStatus');
+
     if (isEditor) {
         statusCircleEditor.style.backgroundColor = 'green';
     } else {
         statusCircleEditor.style.backgroundColor = 'red';
     }
+
 }
 
 function populateClients(clients,isAdmin) {
@@ -291,5 +303,11 @@ function populateClients(clients,isAdmin) {
 }
 
 function handleClientToggle(selectedClient) {
+    socket.send(JSON.stringify({
+        ClientId: clientId,
+        Action: "transfer",
+        Password: password,
+        TransferId : selectedClient
+    }));
     console.log(`Client ${selectedClient} has been selected.`);
 }

@@ -15,11 +15,12 @@ import (
 )
 
 type Message struct {
-	Code     string `json:"Code,omitempty"`
-	ClientId string `json:"ClientId,omitempty"`
-	Action   string `json:"Action,omitempty"`
-	Password string `json:"Password,omitempty"`
-	Clients  string `json:"Clients,omitempty"`
+	Code       string `json:"Code,omitempty"`
+	ClientId   string `json:"ClientId,omitempty"`
+	Action     string `json:"Action,omitempty"`
+	Password   string `json:"Password,omitempty"`
+	Clients    string `json:"Clients,omitempty"`
+	TransferId string `json:"TransferId,omitempty"`
 }
 
 var (
@@ -171,16 +172,8 @@ func handleConnections(ws *websocket.Conn) {
 			// Deauth previous a admin
 			if adminId != msg.ClientId && adminId != "" {
 				log.Printf("Client %s deauthenticated as admin, new admin is %s", adminId, msg.ClientId)
-				deauthMsg := map[string]string{
-					"ClientId": adminId,
-					"Action":   "deauthenticated"}
-
-				mutex.Lock() // Is it safe to send to the same WS from multiple threads ?
-				if err := websocket.JSON.Send(adminWs, deauthMsg); err != nil {
-					log.Printf("Error sending client deauthentication: %v", err)
-				}
-				mutex.Unlock()
-
+				deauthMsg := Message{ClientId: adminId, Action: "deauthenticated"}
+				broadcast <- deauthMsg
 			}
 
 			// Auth Current admin
@@ -191,16 +184,22 @@ func handleConnections(ws *websocket.Conn) {
 			mutex.Unlock()
 
 			log.Printf("Client %s authenticated as admin", msg.ClientId)
-			successMsg := map[string]string{
-				"ClientId": msg.ClientId,
-				"Action":   "authenticated"}
-			if err := websocket.JSON.Send(ws, successMsg); err != nil {
-				log.Printf("Error sending client authentication: %v", err)
-				ws.Close()
-				return
-			}
+			successMsg := Message{ClientId: msg.ClientId, Action: "authenticated"}
+			broadcast <- successMsg
+
 		} else if msg.Action == "transfer" {
-			continue
+
+			// Only admin
+			if msg.Password != adminPassword {
+				log.Printf("Client %s failed to authenticate with password: %s", msg.ClientId, msg.Password)
+				continue
+			}
+			editorId = msg.TransferId
+			msgNoPass := msg
+			msgNoPass.Password = ""
+			log.Printf("Client %s became editor", editorId)
+			broadcast <- msgNoPass
+
 		} else {
 			if msg.ClientId == adminId {
 				broadcast <- msg
