@@ -2,6 +2,8 @@ const socket = new WebSocket("ws://localhost:8080/ws");
 const savedPassword = localStorage.getItem('adminPassword');
 let password = null;
 let clientId = null;
+let isAdmin = false;
+let isEditor = true;
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -9,6 +11,19 @@ document.addEventListener("DOMContentLoaded", function()
 //
 //// Divs control
 //
+    {
+        const editorSwitch = document.getElementById('editorSwitch');
+        editorSwitch.addEventListener('change', function() {
+            console.log("@!@@@!@!@")
+            if (editorSwitch.checked) {
+                isEditor = true;
+                const radios = document.querySelectorAll('input[name="clientToggle"]');
+                radios.forEach(radio => radio.checked = false);
+            } else {
+                isEditor = false;
+            }
+        });
+    }
 
     //Admin Panel
     {
@@ -82,7 +97,7 @@ document.addEventListener("DOMContentLoaded", function()
     editor.setSize("100%","100%");
 
     let clients = null;
-    let isAdmin = false;
+    
     console.log("Your saved password is:", savedPassword);
 
     socket.onmessage = function(event) 
@@ -93,11 +108,25 @@ document.addEventListener("DOMContentLoaded", function()
         
         if (data.Action == "authenticated")
         {
-            if (data.ClientId == clientId) {showAdminNotification("You are now the admin and editor!", true,true); isAdmin = true; populateClients(clients, isAdmin);};
+            if (data.ClientId == clientId) 
+            {
+                showAdminNotification("You are now the admin and editor!", true,true); 
+                isAdmin = true; 
+                populateClients(clients, isAdmin);
+                const editorSwitch = document.getElementById('editorSwitch');
+                editorSwitch.disabled = false;
+            };
         }
         else if (data.Action == "deauthenticated")
         {
-            if (data.ClientId == clientId) {showAdminNotification("You are not admin anymore", false,false); isAdmin = false; populateClients(clients, isAdmin);};
+            if (data.ClientId == clientId) 
+            {
+                showAdminNotification("You are not admin anymore", false,false); 
+                isAdmin = false; 
+                populateClients(clients, isAdmin);
+                const editorSwitch = document.getElementById('editorSwitch');
+                editorSwitch.disabled = true;
+            };
         }
         else if (data.Action == "hello") 
         {
@@ -128,10 +157,11 @@ document.addEventListener("DOMContentLoaded", function()
         else if (data.Action == "transfer")
         {
             if (data.TransferId == clientId) {setEditor(true);}
+            else {setEditor(false);}
         }
         else if (data.Action == "code")
         {
-            editor.setValue(data.code);
+            editor.setValue(data.Code);
             // editor.setCursor({line: 1, ch: 5})
         }
     };
@@ -153,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function()
         var code = instance.getValue();
         if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
             console.log("Sending message")
-            socket.send(JSON.stringify({ Code: code, ClientId: clientId }));
+            socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
         }
     });
 
@@ -215,8 +245,8 @@ document.addEventListener("DOMContentLoaded", function()
     })
 });
 
-function sendPassword(password) {
-    var pass = password || document.getElementById('adminPassword').value;
+function sendPassword(password_input) {
+    let pass = password_input || document.getElementById('adminPassword').value;
     password = pass;
     console.log("Sending password", pass, "to server, my id is: ", clientId);
     if (pass && socket) {
@@ -262,12 +292,12 @@ function setAdmin(isAdmin){
 }
 
 function setEditor(isEditor){
-    let statusCircleEditor = document.getElementById('editorStatus');
+    let editorSwitch = document.getElementById('editorSwitch');
 
     if (isEditor) {
-        statusCircleEditor.style.backgroundColor = 'green';
+        editorSwitch.checked = true;
     } else {
-        statusCircleEditor.style.backgroundColor = 'red';
+        editorSwitch.checked = false;
     }
 
 }
@@ -291,7 +321,13 @@ function populateClients(clients,isAdmin) {
             radioButton.id = `client-${index}`;
     
             radioButton.addEventListener('change', (event) => {
-                handleClientToggle(event.target.value); 
+                console.log(event)
+                if (event.target.checked) {
+                    const editorSwitch = document.getElementById('editorSwitch');
+                    editorSwitch.checked = false;
+                    console.log("editorSwitch.checked", editorSwitch.checked)
+                    handleClientToggle(event.target.value); 
+                }
             });
             li.appendChild(radioButton);
         }

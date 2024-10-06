@@ -136,12 +136,16 @@
             margin-top: 5px; 
         }
     </style>
+    <link rel="stylesheet" href="css/switch.css">
 </head>
 <body>
     <header>
         <div style="display: flex; align-items: center;">
             <span>Editing Status: </span>
-            <div id="editorStatus" style="width: 15px; height: 15px; border-radius: 50%; background-color: red; margin-left: 5px;"></div>
+            <label class="switch">
+                <input type="checkbox" id="editorSwitch" disabled>
+                <span class="slider round"></span>
+            </label>
         </div>
         <div style="display: flex; align-items: center;">
             <span>Admin Status: </span>

@@ -201,7 +201,7 @@ func handleConnections(ws *websocket.Conn) {
 			broadcast <- msgNoPass
 
 		} else {
-			if msg.ClientId == adminId {
+			if msg.ClientId == editorId {
 				broadcast <- msg
 				log.Printf("Code update: %s, by %s", msg.Code, msg.ClientId)
 			} else {
@@ -231,10 +231,9 @@ func handleConnections(ws *websocket.Conn) {
 func handleMessages() {
 	for {
 		msg := <-broadcast
-
 		mutex.Lock()
 		for client, clientId := range clients {
-			if msg.Action == "Code" {
+			if msg.Action == "code" {
 				if clientId != msg.ClientId {
 					if err := websocket.JSON.Send(client, msg); err != nil {
 						log.Printf("Error sending message: %v", err)
