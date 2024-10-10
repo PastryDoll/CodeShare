@@ -1,0 +1,23 @@
+#customMenu {
+    display: none;
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+#customMenu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#customMenu ul li {
+    padding: 10px;
+    cursor: pointer;
+}
+
+#customMenu ul li:hover {
+    background-color: #eee;
+}

@@ -16,7 +16,9 @@ import (
 
 type Message struct {
 	Code       string `json:"Code,omitempty"`
+	ChatMsg    string `json:"ChatMsg,omitempty"`
 	ClientId   string `json:"ClientId,omitempty"`
+	AdminId    string `json:"AdminId,omitempty"`
 	Action     string `json:"Action,omitempty"`
 	Password   string `json:"Password,omitempty"`
 	Clients    string `json:"Clients,omitempty"`
@@ -115,7 +117,7 @@ func handleConnections(ws *websocket.Conn) {
 
 	var msg Message
 	msg.ClientId = clientId
-	msg.Action = "hello"
+	msg.AdminId = adminId
 
 	// Register new client and set admin
 	log.Printf("Client %s connected", clientId)
@@ -133,9 +135,15 @@ func handleConnections(ws *websocket.Conn) {
 		msg.Clients = strings.Join(clientIDs, ",")
 	}
 
-	// If new client is admin we send the password, else we broadcast new client to everyone
+	// Broadcast new client to everyone
+	msg.Action = "sayhello"
+	broadcast <- msg
+
+	msg.Action = "hello"
+	// If new client is admin we send the password, else we say hello with no password to client
 	if adminId == "" {
 		mutex.Lock()
+
 		adminId = clientId
 		editorId = clientId
 		msg.Password = adminPassword
@@ -143,9 +151,19 @@ func handleConnections(ws *websocket.Conn) {
 		if err := websocket.JSON.Send(ws, msg); err != nil {
 			log.Printf("Error sending client authentication: %v", err)
 		}
+
 		mutex.Unlock()
 	} else {
-		broadcast <- msg
+
+		mutex.Lock()
+
+		if err := websocket.JSON.Send(ws, msg); err != nil {
+			log.Printf("Error sending Hello: %v", err)
+			ws.Close()
+			return
+		}
+
+		mutex.Unlock()
 	}
 
 	// Receive messages from the client
@@ -200,6 +218,9 @@ func handleConnections(ws *websocket.Conn) {
 			log.Printf("Client %s became editor", editorId)
 			broadcast <- msgNoPass
 
+		} else if msg.Action == "chat" {
+			broadcast <- msg
+			log.Printf("Message sent: %s, by %s", msg.ChatMsg, msg.ClientId)
 		} else {
 			if msg.ClientId == editorId {
 				broadcast <- msg

@@ -3,6 +3,7 @@ const savedPassword = localStorage.getItem('adminPassword');
 let password = null;
 let clientId = null;
 let isAdmin = false;
+let adminId = null;
 let isEditor = true;
 
 document.addEventListener("DOMContentLoaded", function() 
@@ -11,10 +12,27 @@ document.addEventListener("DOMContentLoaded", function()
 //
 //// Divs control
 //
+
+    
+    const chatMessages = document.getElementById('messages');
+    const sendButton = document.getElementById('send');
+    const messageInput = document.getElementById('message');
+    const usernameInput = document.getElementById('username');
+
+    sendButton.onclick = function() {
+        const message = messageInput.value;
+        if (message) {
+            console.log("Sending message:", message)
+            socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
+            messageInput.value = ''; // Clear the input
+        }
+    };
+
+
+    // IsEditor switch
     {
         const editorSwitch = document.getElementById('editorSwitch');
         editorSwitch.addEventListener('change', function() {
-            console.log("@!@@@!@!@")
             if (editorSwitch.checked) {
                 isEditor = true;
                 const radios = document.querySelectorAll('input[name="clientToggle"]');
@@ -86,6 +104,7 @@ document.addEventListener("DOMContentLoaded", function()
 //// Set default code editor theme and params.
 //  
     var editor_element = document.getElementById("editor")
+    var editorContainer = document.getElementById("editorContainer")
     var editor = CodeMirror.fromTextArea(editor_element, {
         mode: "python", 
         lineNumbers: true, 
@@ -95,6 +114,15 @@ document.addEventListener("DOMContentLoaded", function()
     
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
     editor.setSize("100%","100%");
+
+    editorContainer.addEventListener('contextmenu', function(e) {
+        e.preventDefault(); // Prevent the default browser context menu
+
+        // Position the custom menu at the mouse location within the area
+        customMenu.style.display = 'block';
+        customMenu.style.left = `${e.pageX}px`;
+        customMenu.style.top = `${e.pageY}px`;
+    });
 
     let clients = null;
     
@@ -107,7 +135,9 @@ document.addEventListener("DOMContentLoaded", function()
         console.log("Got message: ", data)
         
         if (data.Action == "authenticated")
-        {
+        {   
+            adminId = data.ClientId
+            populateClients(clients, isAdmin);
             if (data.ClientId == clientId) 
             {
                 showAdminNotification("You are now the admin and editor!", true,true); 
@@ -115,7 +145,7 @@ document.addEventListener("DOMContentLoaded", function()
                 populateClients(clients, isAdmin);
                 const editorSwitch = document.getElementById('editorSwitch');
                 editorSwitch.disabled = false;
-            };
+            }
         }
         else if (data.Action == "deauthenticated")
         {
@@ -130,11 +160,10 @@ document.addEventListener("DOMContentLoaded", function()
         }
         else if (data.Action == "hello") 
         {
-            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            populateClients(clients, isAdmin);
             if (!clientId)
             {
                 clientId = data.ClientId;
+                document.getElementById("username").textContent = clientId;
                 console.log("Your id is", clientId);
                 if (data.Password) 
                 {
@@ -149,6 +178,12 @@ document.addEventListener("DOMContentLoaded", function()
             }
 
         } 
+        else if (data.Action == "sayhello")
+        {
+            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            adminId = data.AdminId
+            populateClients(clients, isAdmin);
+        }
         else if (data.Action == "byebye")
         {
             clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
@@ -158,6 +193,15 @@ document.addEventListener("DOMContentLoaded", function()
         {
             if (data.TransferId == clientId) {setEditor(true);}
             else {setEditor(false);}
+        }
+        else if (data.Action == "chat")
+        {
+            const msg = data.ChatMsg;
+            const username = data.ClientId;
+            const messageElement = document.createElement('p');
+            messageElement.innerHTML = `<strong>${username}:</strong> ${msg}`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         else if (data.Action == "code")
         {
@@ -243,6 +287,7 @@ document.addEventListener("DOMContentLoaded", function()
     document.getElementById("sendPassword").addEventListener("click", function() {
     sendPassword(null)
     })
+
 });
 
 function sendPassword(password_input) {
@@ -303,11 +348,15 @@ function setEditor(isEditor){
 }
 
 function populateClients(clients,isAdmin) {
+    console.log("Populating clients...")
+    console.log("Admin is:",adminId)
     const clientsList = document.getElementById('clientsList');
     clientsList.innerHTML = ''; 
     const clientsList_ids = clients.split(",")
-    console.log("Im admin? ",isAdmin,"client_list:", clientsList_ids, clients)
     clientsList_ids.forEach((client, index) => {
+        if (client === adminId) {
+            return;
+        }
         const li = document.createElement('li');
         const label = document.createElement('label');
         label.innerText = client;

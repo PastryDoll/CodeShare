@@ -137,8 +137,15 @@
         }
     </style>
     <link rel="stylesheet" href="css/switch.css">
+    <link rel="stylesheet" href="css/contextmenu.css">
 </head>
 <body>
+    <div id="customMenu">
+        <ul>
+            <li onclick="alert('Option 1 clicked!')">Option 1</li>
+            <li onclick="alert('Option 2 clicked!')">Option 2</li>
+        </ul>
+    </div>
     <header>
         <div style="display: flex; align-items: center;">
             <span>Editing Status: </span>
@@ -148,7 +155,8 @@
             </label>
         </div>
         <div style="display: flex; align-items: center;">
-            <span>Admin Status: </span>
+            <span>User: </span><span id="username">[Guest]</span>
+            <span style="padding-left: 10px;">Admin Status: </span>
             <div id="adminStatus" style="width: 15px; height: 15px; border-radius: 50%; background-color: red; margin-left: 5px;"></div>
         </div>
     </header>
@@ -159,8 +167,16 @@
             <h2>Admin</h2>
             <input type="text" id="adminPassword" placeholder="Enter admin password" />
             <button id="sendPassword">Send Password</button>
-            <div id="adminMessage" style="display: none; padding: 10px; background-color: #e0ffe0; border: 1px solid #00b300; margin-top: 10px; position: relative;">
-                <button id="closeAdminMessage" style="position: absolute; right: 10px; top: 5px;" onclick="closeAdminMessage()">X</button>
+            <div id="adminMessage">
+                <button id="closeAdminMessage">X</button>
+                <p id="adminMessageText"></p>
+            </div>
+    
+            <div id="chat">
+                <h2>Chat Room</h2>
+                <div id="messages"></div>
+                <input type="text" id="message" placeholder="Enter message" />
+                <button id="send">Send</button>
             </div>
         </div>
 
