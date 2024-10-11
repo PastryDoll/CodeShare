@@ -183,7 +183,8 @@
             <textarea id="editor"></textarea>
             <button id="runButton">Run Code</button>
             <span id="output-label" class="output-label">Output Window:</span>
-            <div id="output"></div>
+            <!-- Using <pre> here so it doest ignore newlines \n, maybe there is a way to do with div -->
+            <pre id="output"></pre>
         </div>
 
         <div id="clientsPanel">
