@@ -5,6 +5,7 @@ let clientId = null;
 let isAdmin = false;
 let adminId = null;
 let isEditor = true;
+let clients = null;
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -17,7 +18,6 @@ document.addEventListener("DOMContentLoaded", function()
     const chatMessages = document.getElementById('messages');
     const sendButton = document.getElementById('send');
     const messageInput = document.getElementById('message');
-    const usernameInput = document.getElementById('username');
 
     sendButton.onclick = function() {
         const message = messageInput.value;
@@ -103,28 +103,77 @@ document.addEventListener("DOMContentLoaded", function()
 // 
 //// Set default code editor theme and params.
 //  
+    // var editorContainer = document.getElementById("editorContainer")
     var editor_element = document.getElementById("editor")
-    var editorContainer = document.getElementById("editorContainer")
     var editor = CodeMirror.fromTextArea(editor_element, {
         mode: "python", 
         lineNumbers: true, 
         theme: "dracula", 
         tabSize: 4 
     });
-    
+
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
     editor.setSize("100%","100%");
 
+    const editorContainer = editor.getWrapperElement();
     editorContainer.addEventListener('contextmenu', function(e) {
-        e.preventDefault(); // Prevent the default browser context menu
-
-        // Position the custom menu at the mouse location within the area
+        e.preventDefault(); 
         customMenu.style.display = 'block';
         customMenu.style.left = `${e.pageX}px`;
         customMenu.style.top = `${e.pageY}px`;
     });
 
-    let clients = null;
+    document.getElementById('menu1').addEventListener('click', async function() 
+    {
+        const selectedText = editor.getSelection(); 
+        console.log("Selected text", selectedText); 
+        customMenu.style.display = 'none';
+        const data = {
+            model: "professor",
+            prompt: selectedText
+        };
+        let AIResponse = ""
+        fetch("http://localhost:11434/api/generate", 
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => 
+        {
+            if (!response.ok) 
+            {
+                throw new Error("Network response was not ok " + response.statusText);
+            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            function readStream() 
+            {   
+                return reader.read().then(({ done, value }) => 
+                {
+                    if (done) {return;}
+                    let newElement = decoder.decode(value, { stream: true });
+                    newElement =  JSON.parse(newElement).response;
+                    console.log("Streamed Response Part:", newElement);
+                    AIResponse += newElement;
+                    return readStream();
+                });
+            }
+            return readStream();
+        })  
+        .then(() => runButton.disabled = false)
+        .catch(error => {console.log("Error: " + error.message)});
+    });
+
+    document.addEventListener('mousedown', function(e) {
+        setTimeout(function() {
+            if (!customMenu.contains(e.target) && !editorContainer.contains(e.target)) {
+                customMenu.style.display = 'none';
+            }
+        }, 50); 
+    });
     
     console.log("Your saved password is:", savedPassword);
 
@@ -231,19 +280,18 @@ document.addEventListener("DOMContentLoaded", function()
         }
     });
 
-    var outputElement = document.getElementById("output");
+    let outputElement = document.getElementById("output");
     // 
     //// Effect of pressing the run code button. This should send the code to the server and. receive the 
     //   output stream and update the output window. 
     document.getElementById("runButton").addEventListener("click", function() {
         runButton.disabled = true;
         var code = editor.getValue();
+        let FirstRead = true;
         outputElement.textContent = "Processing...";
 
         // @NOTE So I tried XHR but... It works for Safari, but not for Chrome.. It looks like the problem is that Chrome
         // has a bigger buffer for the message and so the output dont feels smooth --Caio.
-        let FirstRead = true;
-
         // Send code and handle output
         fetch("/run", {
             method: "POST",
@@ -258,27 +306,25 @@ document.addEventListener("DOMContentLoaded", function()
             }
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
-            var count = 0;
-            function readStream() {
-                return reader.read().then(({ done, value }) => {
-                    if (done) {
-                        return;
-                    }
-                    const newText = decoder.decode(value, { stream: true });
+
+            function readStream() 
+            {   
+                return reader.read().then(({ done, value }) => 
+                {
+                    if (done) {return;}
                     if (FirstRead) {
                         outputElement.textContent = ""; 
                         FirstRead = false; 
                     }
-                    outputElement.textContent += newText;
-                    count += 1;
-                    console.log("Stream open", count);
+                    let newElement = decoder.decode(value, { stream: true });
+                    console.log("Streamed Response Part:", newElement);
+                    outputElement.textContent += newElement;
                     return readStream();
                 });
             }
-
             return readStream();
         })
-        .then(() => runButton.disabled = false)
+        .then(() => runButton.disabled = false, console.log(outputElement.textContent))
         .catch(error => {
             document.getElementById("output").textContent = "Error: " + error.message;
         });
