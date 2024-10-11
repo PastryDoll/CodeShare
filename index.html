@@ -15,6 +15,15 @@
             flex-direction: column;
             overflow: hidden;
         }
+     
+        video {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border: 5px solid #333;
+            border-radius: 8px;
+            background-color: black;
+        }
 
         header {
             display: flex;
@@ -170,7 +179,9 @@
                 <button id="closeAdminMessage">X</button>
                 <p id="adminMessageText"></p>
             </div>
-    
+            <div id="adminWebcam">
+                <video id="video" autoplay></video>
+            </div>
             <div id="chat">
                 <h2>Chat Room</h2>
                 <div id="messages"></div>

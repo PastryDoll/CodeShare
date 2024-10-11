@@ -14,7 +14,40 @@ document.addEventListener("DOMContentLoaded", function()
 //// Divs control
 //
 
-    
+    // Webcam
+    const video = document.getElementById('video');
+    let stream
+    async function startCamera() {
+        try {
+            const constraints = {
+                video: {
+                    facingMode: 'user', // Use 'environment' for back camera on mobile
+                    width: { ideal: 1280 }, // Change to a lower resolution if needed
+                    height: { ideal: 720 }, // Change to a lower resolution if needed
+                    frameRate: { ideal: 30, max: 60 } // Target frame rate
+                }
+            };
+            
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+        } catch (error) {
+          console.error('Error accessing the camera: ', error);
+          alert('Unable to access camera. Please check your permissions.');
+        }
+    }
+
+    function stopCamera()
+    {
+        if (stream) 
+        {
+            video.srcObject = null;
+        }
+    }
+    startCamera()
+  
+
+
+    // Chat 
     const chatMessages = document.getElementById('messages');
     const sendButton = document.getElementById('send');
     const messageInput = document.getElementById('message');
