@@ -15,7 +15,6 @@
             flex-direction: column;
             overflow: hidden;
         }
-     
         video {
             width: 100%;
             max-width: 640px;
@@ -24,21 +23,18 @@
             border-radius: 8px;
             background-color: black;
         }
-
         header {
             display: flex;
             justify-content: space-between;
             padding: 10px;
             background-color: #f0f0f0;
         }
-
         #mainContent {
             display: grid;
             grid-template-columns: auto  1fr auto;
             flex: 1;
             overflow: hidden;
         }
-
         #adminPanel {
             width: 200px;
             padding: 20px;
@@ -48,7 +44,6 @@
             max-width: 500px;
             position: relative;
         }
-
         #resizer-left{
             width: 10px;
             height: 100%;
@@ -60,7 +55,6 @@
             top: 0px;
             cursor: ew-resize; 
         }
-
         #clientsPanel {
             padding: 20px;
             width: 200px;
@@ -73,7 +67,6 @@
             position: relative;
             overflow: hidden;
         }
-
         #resizer-right{
             width: 10px;
             height: 100%;
@@ -85,7 +78,6 @@
             top: 0px;
             cursor: ew-resize;
         }
-
         #editorContainer {
             display: flex;
             flex-direction: column;
@@ -93,7 +85,6 @@
             box-sizing: border-box;
             overflow: hidden;
         }
-
         #editor {
             flex: 1;
             border: 0px solid #ddd;
@@ -101,7 +92,6 @@
             margin-bottom: 10px;
             height: 80%;
         }
-
         #output {
             height: 20%;
             border: 0px solid #ddd;
@@ -110,12 +100,10 @@
             background-color: #f4f4f4;
             overflow-y: auto;
         }
-
         footer {
             padding: 10px;
             background-color: #89aaf2;
         }
-
         #adminMessage {
             display: none; 
             padding: 10px; 
@@ -123,8 +111,6 @@
             margin-top: 10px;
             position: relative; 
         }
-
-        
         #closeAdminMessage {
             position: absolute; 
             right: 4px; 
@@ -139,16 +125,23 @@
             margin: 0; 
             line-height: 1; 
         }
-
-        
         .messageText {
             margin-top: 5px; 
         }
     </style>
     <link rel="stylesheet" href="css/switch.css">
+    <link rel="stylesheet" href="css/createuser.css">
     <link rel="stylesheet" href="css/contextmenu.css">
 </head>
 <body>
+    <div id="usernameModal" class="modal">
+        <div class="modal-content">
+            <h2>Create Username</h2>
+            <input type="text" id="usernametext" placeholder="Enter your username">
+            <br>
+            <button id="submitBtn">Submit</button>
+        </div>
+    </div>
     <div id="customMenu">
         <ul>
             <li id="menu1">Ask AI Assistant</li>

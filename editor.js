@@ -1,11 +1,16 @@
-const socket = new WebSocket("ws://localhost:8080/ws");
+// Global state
+// TODO(CAIO) - Clean up global variables that dont need to be global
 const savedPassword = localStorage.getItem('adminPassword');
+console.log("Your saved password is:", savedPassword);
+let socket = null; //Only modified at initSocket()
 let password = null;
 let clientId = null;
-let isAdmin = false;
+let isAdmin = false; 
 let adminId = null;
 let isEditor = true;
 let clients = null;
+let userName = null;
+let editor = null;
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -14,53 +19,70 @@ document.addEventListener("DOMContentLoaded", function()
 //// Divs control
 //
 
-    // Webcam
-    const video = document.getElementById('video');
-    let stream
-    async function startCamera() {
-        try {
-            const constraints = {
-                video: {
-                    facingMode: 'user', // Use 'environment' for back camera on mobile
-                    width: { ideal: 1280 }, // Change to a lower resolution if needed
-                    height: { ideal: 720 }, // Change to a lower resolution if needed
-                    frameRate: { ideal: 30, max: 60 } // Target frame rate
-                }
-            };
-            
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = stream;
-        } catch (error) {
-          console.error('Error accessing the camera: ', error);
-          alert('Unable to access camera. Please check your permissions.');
-        }
-    }
-
-    function stopCamera()
+    // Username initial window
     {
-        if (stream) 
+        const modal = document.getElementById("usernameModal");
+        const submitBtn = document.getElementById("submitBtn");
+        submitBtn.addEventListener("click", async function() 
         {
-            video.srcObject = null;
-        }
+            const usernameInput = document.getElementById("usernametext").value;
+            if (usernameInput) {
+                userName = usernameInput;
+                initSocket(userName);       
+            } else {
+                alert("This user name is in use or invalid");
+            }
+        });
     }
-    startCamera()
-  
 
+    // Webcam
+    {
+        const video = document.getElementById('video');
+        let stream
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: 'user', 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 }, 
+                        frameRate: { ideal: 30, max: 60 } 
+                    }
+                };
+                
+                // stream = await navigator.mediaDevices.getUserMedia(constraints);
+                // video.srcObject = stream
+            } catch (error) {
+              console.error('Error accessing the camera: ', error);
+              alert('Unable to access camera. Please check your permissions.');
+            }
+        }
+    
+        function stopCamera()
+        {
+            if (stream) 
+            {
+                video.srcObject = null;
+            }
+        }
+        startCamera()
+    }
 
     // Chat 
-    const chatMessages = document.getElementById('messages');
-    const sendButton = document.getElementById('send');
-    const messageInput = document.getElementById('message');
+    {
 
-    sendButton.onclick = function() {
-        const message = messageInput.value;
-        if (message) {
-            console.log("Sending message:", message)
-            socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
-            messageInput.value = ''; // Clear the input
-        }
-    };
-
+        const sendButton = document.getElementById('send');
+        const messageInput = document.getElementById('message');
+    
+        sendButton.onclick = function() {
+            const message = messageInput.value;
+            if (message) {
+                console.log("Sending message:", message)
+                socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
+                messageInput.value = ''; // Clear the input
+            }
+        };
+    }
 
     // IsEditor switch
     {
@@ -76,7 +98,7 @@ document.addEventListener("DOMContentLoaded", function()
         });
     }
 
-    //Admin Panel
+    // Admin Panel
     {
         const adminPanelDiv = document.getElementById('adminPanel');
         const adminPanelResizer = document.getElementById('resizer-left')
@@ -124,249 +146,153 @@ document.addEventListener("DOMContentLoaded", function()
                 clientPanelDiv.style.width = `${newWidth}px`;
             }
         }
+
+        function stopResize() {
+            document.documentElement.removeEventListener('mousemove', resizePanel);
+            document.documentElement.removeEventListener('mouseup', stopResize);
+        }
     }
-    
-    function stopResize() {
-        document.documentElement.removeEventListener('mousemove', resizePanel);
-        document.documentElement.removeEventListener('mouseup', stopResize);
-    }
-    
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// 
-//// Set default code editor theme and params.
-//  
-    // var editorContainer = document.getElementById("editorContainer")
-    var editor_element = document.getElementById("editor")
-    var editor = CodeMirror.fromTextArea(editor_element, {
-        mode: "python", 
-        lineNumbers: true, 
-        theme: "dracula", 
-        tabSize: 4 
-    });
-
-    editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
-    editor.setSize("100%","100%");
-
-    const editorContainer = editor.getWrapperElement();
-    editorContainer.addEventListener('contextmenu', function(e) {
-        e.preventDefault(); 
-        customMenu.style.display = 'block';
-        customMenu.style.left = `${e.pageX}px`;
-        customMenu.style.top = `${e.pageY}px`;
-    });
-
-    document.getElementById('menu1').addEventListener('click', async function() 
+    // Editor (Editor is Global)
     {
-        const selectedText = editor.getSelection(); 
-        console.log("Selected text", selectedText); 
-        customMenu.style.display = 'none';
-        const data = {
-            model: "professor",
-            prompt: selectedText
-        };
-        let AIResponse = ""
-        fetch("http://localhost:11434/api/generate", 
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => 
-        {
-            if (!response.ok) 
-            {
-                throw new Error("Network response was not ok " + response.statusText);
-            }
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            function readStream() 
-            {   
-                return reader.read().then(({ done, value }) => 
-                {
-                    if (done) {return;}
-                    let newElement = decoder.decode(value, { stream: true });
-                    newElement =  JSON.parse(newElement).response;
-                    console.log("Streamed Response Part:", newElement);
-                    AIResponse += newElement;
-                    return readStream();
-                });
-            }
-            return readStream();
-        })  
-        .then(() => runButton.disabled = false)
-        .catch(error => {console.log("Error: " + error.message)});
-    });
-
-    document.addEventListener('mousedown', function(e) {
-        setTimeout(function() {
-            if (!customMenu.contains(e.target) && !editorContainer.contains(e.target)) {
-                customMenu.style.display = 'none';
-            }
-        }, 50); 
-    });
-    
-    console.log("Your saved password is:", savedPassword);
-
-    socket.onmessage = function(event) 
-    {
-        let data = JSON.parse(event.data);
-        
-        console.log("Got message: ", data)
-        
-        if (data.Action == "authenticated")
-        {   
-            adminId = data.ClientId
-            populateClients(clients, isAdmin);
-            if (data.ClientId == clientId) 
-            {
-                showAdminNotification("You are now the admin and editor!", true,true); 
-                isAdmin = true; 
-                populateClients(clients, isAdmin);
-                const editorSwitch = document.getElementById('editorSwitch');
-                editorSwitch.disabled = false;
-            }
-        }
-        else if (data.Action == "deauthenticated")
-        {
-            if (data.ClientId == clientId) 
-            {
-                showAdminNotification("You are not admin anymore", false,false); 
-                isAdmin = false; 
-                populateClients(clients, isAdmin);
-                const editorSwitch = document.getElementById('editorSwitch');
-                editorSwitch.disabled = true;
-            };
-        }
-        else if (data.Action == "hello") 
-        {
-            if (!clientId)
-            {
-                clientId = data.ClientId;
-                document.getElementById("username").textContent = clientId;
-                console.log("Your id is", clientId);
-                if (data.Password) 
-                {
-                    console.log("Your password is:", data.Password);
-                    localStorage.setItem('adminPassword', data.Password);
-                    document.getElementById('adminPassword').value = data.Password;
-                }
-                if (savedPassword) 
-                {
-                    sendPassword(savedPassword);
-                }
-            }
-
-        } 
-        else if (data.Action == "sayhello")
-        {
-            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            adminId = data.AdminId
-            populateClients(clients, isAdmin);
-        }
-        else if (data.Action == "byebye")
-        {
-            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            populateClients(clients);
-        }
-        else if (data.Action == "transfer")
-        {
-            if (data.TransferId == clientId) {setEditor(true);}
-            else {setEditor(false);}
-        }
-        else if (data.Action == "chat")
-        {
-            const msg = data.ChatMsg;
-            const username = data.ClientId;
-            const messageElement = document.createElement('p');
-            messageElement.innerHTML = `<strong>${username}:</strong> ${msg}`;
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        else if (data.Action == "code")
-        {
-            editor.setValue(data.Code);
-            // editor.setCursor({line: 1, ch: 5})
-        }
-    };
-    
-    socket.onopen = function() {
-        console.log("Connected to WebSocket server");
-    };
-    
-    socket.onerror = function(error) {
-        console.error("WebSocket error:", error);
-    };
-    
-    socket.onclose = function() {
-        console.log("WebSocket connection closed");
-    };
-    
-    editor.on("change", function(instance, changeObj) {
-        console.log(changeObj)
-        var code = instance.getValue();
-        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
-            console.log("Sending message")
-            socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
-        }
-    });
-
-    let outputElement = document.getElementById("output");
-    // 
-    //// Effect of pressing the run code button. This should send the code to the server and. receive the 
-    //   output stream and update the output window. 
-    document.getElementById("runButton").addEventListener("click", function() {
-        runButton.disabled = true;
-        var code = editor.getValue();
-        let FirstRead = true;
-        outputElement.textContent = "Processing...";
-
-        // @NOTE So I tried XHR but... It works for Safari, but not for Chrome.. It looks like the problem is that Chrome
-        // has a bigger buffer for the message and so the output dont feels smooth --Caio.
-        // Send code and handle output
-        fetch("/run", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ code: code })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error("Network response was not ok " + response.statusText);
-            }
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-
-            function readStream() 
-            {   
-                return reader.read().then(({ done, value }) => 
-                {
-                    if (done) {return;}
-                    if (FirstRead) {
-                        outputElement.textContent = ""; 
-                        FirstRead = false; 
-                    }
-                    let newElement = decoder.decode(value, { stream: true });
-                    console.log("Streamed Response Part:", newElement);
-                    outputElement.textContent += newElement;
-                    return readStream();
-                });
-            }
-            return readStream();
-        })
-        .then(() => runButton.disabled = false, console.log(outputElement.textContent))
-        .catch(error => {
-            document.getElementById("output").textContent = "Error: " + error.message;
+        const editor_element = document.getElementById("editor")
+        editor = CodeMirror.fromTextArea(editor_element, {
+            mode: "python", 
+            lineNumbers: true, 
+            theme: "dracula", 
+            tabSize: 4 
         });
-    });
+    
+        editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+        editor.setSize("100%","100%");
+        editor.on("change", function(instance, changeObj) {
+            console.log(changeObj)
+            var code = instance.getValue();
+            if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
+                console.log("Sending message")
+                socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
+            }
+        });
+    }
+    
+    // Custom context menu
+    {
+        const customMenu = document.getElementById('customMenu');
+        const editorContainer = editor.getWrapperElement();
+        editorContainer.addEventListener('contextmenu', function(e) {
+            e.preventDefault(); 
+            customMenu.style.display = 'block';
+            customMenu.style.left = `${e.pageX}px`;
+            customMenu.style.top = `${e.pageY}px`;
+        });
+        
+        document.addEventListener('mousedown', function(e) {
+            setTimeout(function() {
+                if (!customMenu.contains(e.target)) {
+                    customMenu.style.display = 'none';
+                }
+            }, 50); 
+        });
+        
+        document.getElementById('menu1').addEventListener('click', async function() 
+        {
+            const selectedText = editor.getSelection(); 
+            console.log("Selected text", selectedText); 
+            customMenu.style.display = 'none';
+            const data = {
+                model: "professor",
+                prompt: selectedText
+            };
+            let AIResponse = ""
+            fetch("http://localhost:11434/api/generate", 
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => 
+            {
+                if (!response.ok) 
+                {
+                    throw new Error("Network response was not ok " + response.statusText);
+                }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                function readStream() 
+                {   
+                    return reader.read().then(({ done, value }) => 
+                    {
+                        if (done) {return;}
+                        let newElement = decoder.decode(value, { stream: true });
+                        newElement =  JSON.parse(newElement).response;
+                        console.log("Streamed Response Part:", newElement);
+                        AIResponse += newElement;
+                        return readStream();
+                    });
+                }
+                return readStream();
+            })  
+            .then(() => runButton.disabled = false)
+            .catch(error => {console.log("Error: " + error.message)});
+        });
+    }
+    
+    // Run Button
+    {
 
-    document.getElementById("sendPassword").addEventListener("click", function() {
-    sendPassword(null)
-    })
-
+        let outputElement = document.getElementById("output");
+        document.getElementById("runButton").addEventListener("click", function() {
+            runButton.disabled = true;
+            var code = editor.getValue();
+            let FirstRead = true;
+            outputElement.textContent = "Processing...";
+    
+            // @NOTE So I tried XHR but... It works for Safari, but not for Chrome.. It looks like the problem is that Chrome
+            // has a bigger buffer for the message and so the output dont feels smooth --Caio.
+            // Send code and handle output
+            fetch("/run", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ code: code })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok " + response.statusText);
+                }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+    
+                function readStream() 
+                {   
+                    return reader.read().then(({ done, value }) => 
+                    {
+                        if (done) {return;}
+                        if (FirstRead) {
+                            outputElement.textContent = ""; 
+                            FirstRead = false; 
+                        }
+                        let newElement = decoder.decode(value, { stream: true });
+                        console.log("Streamed Response Part:", newElement);
+                        outputElement.textContent += newElement;
+                        return readStream();
+                    });
+                }
+                return readStream();
+            })
+            .then(() => runButton.disabled = false, console.log(outputElement.textContent))
+            .catch(error => {
+                document.getElementById("output").textContent = "Error: " + error.message;
+            });
+        });
+    
+        document.getElementById("sendPassword").addEventListener("click", function() {
+        sendPassword(null)
+        })
+    }
 });
 
 function sendPassword(password_input) {
@@ -381,7 +307,6 @@ function sendPassword(password_input) {
         }));
     }
 }
-
 function closeAdminMessage() {
     document.getElementById('adminMessage').style.display = 'none';
 }
@@ -405,7 +330,6 @@ function showAdminNotification(text,isAdmin, isEditor) {
     setEditor(isEditor); 
     console.log(text);
 }
-
 function setAdmin(isAdmin){
     let statusCircleAdmin = document.getElementById('adminStatus');
     if (isAdmin) {
@@ -414,7 +338,6 @@ function setAdmin(isAdmin){
         statusCircleAdmin.style.backgroundColor = 'red';
     }
 }
-
 function setEditor(isEditor){
     let editorSwitch = document.getElementById('editorSwitch');
 
@@ -425,7 +348,6 @@ function setEditor(isEditor){
     }
 
 }
-
 function populateClients(clients,isAdmin) {
     console.log("Populating clients...")
     console.log("Admin is:",adminId)
@@ -465,7 +387,6 @@ function populateClients(clients,isAdmin) {
         clientsList.appendChild(li);
     });
 }
-
 function handleClientToggle(selectedClient) {
     socket.send(JSON.stringify({
         ClientId: clientId,
@@ -474,4 +395,102 @@ function handleClientToggle(selectedClient) {
         TransferId : selectedClient
     }));
     console.log(`Client ${selectedClient} has been selected.`);
+}
+function initSocket(username) {
+    socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
+    console.log(socket);
+    const chatMessages = document.getElementById('messages');
+    socket.onopen = function() {
+        console.log("Connected to WebSocket server");
+    };
+    socket.onmessage = function(event) 
+    {
+        let data = JSON.parse(event.data);
+        
+        console.log("Got message: ", data)
+        
+        if (data.Action == "authenticated")
+        {   
+            adminId = data.ClientId
+            populateClients(clients, isAdmin);
+            if (data.ClientId == clientId) 
+            {
+                showAdminNotification("You are now the admin and editor!", true,true); 
+                isAdmin = true; 
+                populateClients(clients, isAdmin);
+                const editorSwitch = document.getElementById('editorSwitch');
+                editorSwitch.disabled = false;
+            }
+        }
+        else if (data.Action == "failed")
+        {
+            socket.close();
+            alert("This user name is in use or invalid");
+        }
+        else if (data.Action == "deauthenticated")
+        {
+            if (data.ClientId == clientId) 
+            {
+                showAdminNotification("You are not admin anymore", false,false); 
+                isAdmin = false; 
+                populateClients(clients, isAdmin);
+                const editorSwitch = document.getElementById('editorSwitch');
+                editorSwitch.disabled = true;
+            };
+        }
+        else if (data.Action == "hello") 
+        {
+            if (!clientId)
+            {
+                const modal = document.getElementById("usernameModal");
+                modal.style.display = "none";
+                clientId = data.ClientId;
+                document.getElementById("username").textContent = clientId;
+                console.log("Your id is", clientId);
+                if (data.Password) 
+                {
+                    console.log("Your password is:", data.Password);
+                    localStorage.setItem('adminPassword', data.Password);
+                    document.getElementById('adminPassword').value = data.Password;
+                    sendPassword(savedPassword);
+                }
+            }
+        } 
+        else if (data.Action == "sayhello")
+        {
+            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            adminId = data.AdminId
+            populateClients(clients, isAdmin);
+        }
+        else if (data.Action == "byebye")
+        {
+            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            populateClients(clients);
+        }
+        else if (data.Action == "transfer")
+        {
+            if (data.TransferId == clientId) {setEditor(true);}
+            else {setEditor(false);}
+        }
+        else if (data.Action == "chat")
+        {
+            const msg = data.ChatMsg;
+            const username = data.ClientId;
+            const messageElement = document.createElement('p');
+            messageElement.innerHTML = `<strong>${username}:</strong> ${msg}`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        else if (data.Action == "code")
+        {
+            editor.setValue(data.Code);
+            // editor.setCursor({line: 1, ch: 5})
+        }
+    };
+    socket.onerror = function(error) {
+        console.error("WebSocket error:", error);
+    };
+    socket.onclose = function() {
+        console.log("WebSocket connection closed");
+    };
 }

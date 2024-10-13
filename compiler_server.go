@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -51,54 +50,51 @@ func main() {
 	http.Handle("/", fileServer)
 
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			return
+		}
+		log.Print("Run code requested!")
+		var req struct {
+			Code string `json:"code"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+		cmd := exec.Command("python3", "-u", "-c", req.Code) // Use the -u flag to unbuffer Python output
+		stdout, err := cmd.StdoutPipe()
 
-			var req struct {
-				Code string `json:"code"`
-			}
-			log.Print("Execution requested!")
+		if err != nil {
+			http.Error(w, "Error creating output pipe", http.StatusInternalServerError)
+			return
+		}
 
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "Invalid request", http.StatusBadRequest)
-				return
-			}
+		log.Printf("Executing: %s", req.Code)
 
-			cmd := exec.Command("python3", "-u", "-c", req.Code) // Use the -u flag to unbuffer Python output
-			stdout, err := cmd.StdoutPipe()
+		if err := cmd.Start(); err != nil {
+			http.Error(w, "Error starting command", http.StatusInternalServerError)
+			return
+		}
 
-			if err != nil {
-				http.Error(w, "Error creating output pipe", http.StatusInternalServerError)
-				return
-			}
+		flusher, ok := w.(http.Flusher)
 
-			log.Printf("Executing: %s", req.Code)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			return
+		}
 
-			if err := cmd.Start(); err != nil {
-				http.Error(w, "Error starting command", http.StatusInternalServerError)
-				return
-			}
-
-			flusher, ok := w.(http.Flusher)
-
-			if !ok {
-				http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
-				return
-			}
-
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusOK)
-			scanner := bufio.NewScanner(stdout)
-			for scanner.Scan() {
-				m := scanner.Text()
-				log.Printf("Out: %s", m)
-				_, _ = w.Write([]byte(m + "\n"))
-				flusher.Flush() // When FLush is present ResponseWriter sets the Transfer-Encoding to chunked
-			}
-			if err := cmd.Wait(); err != nil {
-				log.Printf("Command error: %v", err)
-			}
-		} else {
-			http.Error(w, "Unsupported method", http.StatusMethodNotAllowed)
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			m := scanner.Text()
+			log.Printf("Out: %s", m)
+			_, _ = w.Write([]byte(m + "\n"))
+			flusher.Flush() // When FLush is present ResponseWriter sets the Transfer-Encoding to chunked
+		}
+		if err := cmd.Wait(); err != nil {
+			log.Printf("Command error: %v", err)
 		}
 	})
 
@@ -112,30 +108,45 @@ func main() {
 }
 
 func handleConnections(ws *websocket.Conn) {
-	// Generate a unique client ID
-	clientId := generateClientID()
-
 	var msg Message
-	msg.ClientId = clientId
-	msg.AdminId = adminId
 
-	// Register new client and set admin
-	log.Printf("Client %s connected", clientId)
-
+	clientId := ws.Request().URL.Query().Get("clientId")
+	if clientId == "" {
+		log.Printf("Client ID is in use: %s", clientId)
+		msg := Message{Action: "validation_failed"}
+		websocket.JSON.Send(ws, msg)
+		ws.Close()
+		return
+	}
+	// Check if clientid exists or Broadcast all clients
 	mutex.Lock()
-	clients[ws] = clientId
-	mutex.Unlock()
-
-	// Broadcast all clients
 	{
 		var clientIDs []string
 		for _, clientID := range clients {
 			clientIDs = append(clientIDs, clientID)
+			if clientID == clientId {
+				log.Printf("Client ID is in use: %s", clientId)
+				msg := Message{Action: "failed"}
+				websocket.JSON.Send(ws, msg)
+				ws.Close()
+				mutex.Unlock()
+				return
+			}
 		}
+		clientIDs = append(clientIDs, clientId)
 		msg.Clients = strings.Join(clientIDs, ",")
 	}
+	// Register new client and set admin
+	clients[ws] = clientId
+	mutex.Unlock()
+
+	log.Printf("Client %s connected", clientId)
+
+	msg.ClientId = clientId
+	msg.AdminId = adminId
 
 	// Broadcast new client to everyone
+	msg.AdminId = adminId
 	msg.Action = "sayhello"
 	broadcast <- msg
 
@@ -176,8 +187,13 @@ func handleConnections(ws *websocket.Conn) {
 			log.Printf("Error receiving message: %v", err)
 			break
 		}
-
 		log.Printf("Received message: %s", msg)
+
+		// Validate message
+		if msg.ClientId != clients[ws] {
+			log.Printf("Client %s is trying to impersonate %s. Shutting down potential malicious client", msg.ClientId, clients[ws])
+			break
+		}
 
 		if msg.Action == "authenticate" {
 
@@ -210,7 +226,7 @@ func handleConnections(ws *websocket.Conn) {
 			// Only admin
 			if msg.Password != adminPassword {
 				log.Printf("Client %s failed to authenticate with password: %s", msg.ClientId, msg.Password)
-				continue
+				break
 			}
 			editorId = msg.TransferId
 			msgNoPass := msg
@@ -234,6 +250,7 @@ func handleConnections(ws *websocket.Conn) {
 	mutex.Lock()
 	delete(clients, ws)
 	mutex.Unlock()
+	log.Printf("Clients %s disconnected", clientId)
 	// Broadcast all clients
 	{
 		var msg Message
@@ -272,9 +289,4 @@ func handleMessages() {
 		}
 		mutex.Unlock()
 	}
-}
-
-func generateClientID() string {
-	clientCounter++
-	return "client_" + strconv.Itoa(clientCounter)
 }
