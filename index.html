@@ -130,6 +130,7 @@
         }
     </style>
     <link rel="stylesheet" href="css/switch.css">
+    <link rel="stylesheet" href="css/chat.css">
     <link rel="stylesheet" href="css/createuser.css">
     <link rel="stylesheet" href="css/contextmenu.css">
 </head>
@@ -156,6 +157,8 @@
             </label>
         </div>
         <div style="display: flex; align-items: center;">
+            <input type="text" id="adminPassword" placeholder="Enter admin password" />
+            <button id="sendPassword" style="margin-right: 20px;">Send Password</button>
             <span>User: </span><span id="username">[Guest]</span>
             <span style="padding-left: 10px;">Admin Status: </span>
             <div id="adminStatus" style="width: 15px; height: 15px; border-radius: 50%; background-color: red; margin-left: 5px;"></div>
@@ -166,20 +169,12 @@
         <div id="adminPanel">
             <div id='resizer-left'></div>
             <h2>Admin</h2>
-            <input type="text" id="adminPassword" placeholder="Enter admin password" />
-            <button id="sendPassword">Send Password</button>
             <div id="adminMessage">
                 <button id="closeAdminMessage">X</button>
                 <p id="adminMessageText"></p>
             </div>
             <div id="adminWebcam">
                 <video id="video" autoplay></video>
-            </div>
-            <div id="chat">
-                <h2>Chat Room</h2>
-                <div id="messages"></div>
-                <input type="text" id="message" placeholder="Enter message" />
-                <button id="send">Send</button>
             </div>
         </div>
 
@@ -200,6 +195,14 @@
 
     <footer>
         <span>Footer Area (Optional)</span>
+        <div id="chat-tab" class="collapsed">
+            <div id="chat-header">Chat Room</div>
+            <div id="chat">
+                <div id="messages"></div>
+                <textarea id="message" placeholder="Enter message"></textarea>
+                <button id="send">Send</button>
+            </div>
+        </div>
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>

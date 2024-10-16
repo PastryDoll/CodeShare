@@ -223,7 +223,7 @@ func handleConnections(ws *websocket.Conn) {
 
 		} else if msg.Action == "transfer" {
 
-			// Only admin
+			// Only admin can transfer..
 			if msg.Password != adminPassword {
 				log.Printf("Client %s failed to authenticate with password: %s", msg.ClientId, msg.Password)
 				break

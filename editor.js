@@ -2,15 +2,14 @@
 // TODO(CAIO) - Clean up global variables that dont need to be global
 const savedPassword = localStorage.getItem('adminPassword');
 console.log("Your saved password is:", savedPassword);
-let socket = null; //Only modified at initSocket()
-let password = null;
-let clientId = null;
-let isAdmin = false; 
-let adminId = null;
-let isEditor = true;
-let clients = null;
-let userName = null;
-let editor = null;
+let socket = null; // Only modified at initSocket()
+let password = null; // Modified on SendPassword
+let clientId = null;  // Modified in hello
+let adminId = null; // Modified in authenticated and say hello
+let clients = null; // Modified in byebye and sayhello
+let userName = null; // Modified in Username initial window
+let editor = null; // Modified in editor
+let clientColors = {}; // Modified in getClientColor
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -68,32 +67,53 @@ document.addEventListener("DOMContentLoaded", function()
         startCamera()
     }
 
-    // Chat 
+    // Chat
     {
-
         const sendButton = document.getElementById('send');
         const messageInput = document.getElementById('message');
-    
+        
         sendButton.onclick = function() {
             const message = messageInput.value;
             if (message) {
-                console.log("Sending message:", message)
+                console.log("Sending message:", message);
                 socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
-                messageInput.value = ''; // Clear the input
+                messageInput.value = '';  // Clear the input field
             }
         };
+    
+        document.getElementById('chat-header').addEventListener('click', function() {
+            const chatTab = document.getElementById('chat-tab');
+            const isCollapsed = chatTab.classList.contains('collapsed');
+    
+            chatTab.classList.remove('collapsed', 'expanded');
+    
+            if (isCollapsed) {
+                chatTab.style.overflow = 'hidden';
+                chatTab.classList.add('expanded');
+                setTimeout(function() {
+                    chatTab.style.overflow = 'visible'; 
+                }, 300); 
+            } else {
+                chatTab.classList.add('collapsed');
+                chatTab.style.overflow = 'hidden';
+            }
+        });
     }
 
     // IsEditor switch
     {
         const editorSwitch = document.getElementById('editorSwitch');
         editorSwitch.addEventListener('change', function() {
+            const isAdmin = (clientId == adminId)
             if (editorSwitch.checked) {
-                isEditor = true;
                 const radios = document.querySelectorAll('input[name="clientToggle"]');
                 radios.forEach(radio => radio.checked = false);
-            } else {
-                isEditor = false;
+                handleClientToggle(clientId)
+
+            }
+            else if (isAdmin && !editorSwitch.checked) {
+                editorSwitch.checked = true;
+                console.log('Admin cannot uncheck this switch.');
             }
         });
     }
@@ -310,11 +330,11 @@ function sendPassword(password_input) {
 function closeAdminMessage() {
     document.getElementById('adminMessage').style.display = 'none';
 }
-function showAdminNotification(text,isAdmin, isEditor) {
+function showAdminNotification(text,Admin, Editor) {
     var adminMessageDiv = document.getElementById('adminMessage');
     adminMessageDiv.style.display = 'block'; 
 
-    if (isAdmin) {
+    if (Admin) {
         adminMessageDiv.style.backgroundColor = '#e0ffe0'; 
         adminMessageDiv.style.borderColor = '#00b300';     
     }
@@ -326,22 +346,22 @@ function showAdminNotification(text,isAdmin, isEditor) {
     <button id="closeAdminMessage" onclick="closeAdminMessage()">X</button>
     <div class="messageText">${text}</div> <!-- Use a separate div for text -->
     `; 
-    setAdmin(isAdmin); 
-    setEditor(isEditor); 
+    setAdmin(Admin); 
+    setEditor(Editor); 
     console.log(text);
 }
-function setAdmin(isAdmin){
+function setAdmin(Admin){
     let statusCircleAdmin = document.getElementById('adminStatus');
-    if (isAdmin) {
+    if (Admin) {
         statusCircleAdmin.style.backgroundColor = 'green';
     } else {
         statusCircleAdmin.style.backgroundColor = 'red';
     }
 }
-function setEditor(isEditor){
+function setEditor(Editor){
     let editorSwitch = document.getElementById('editorSwitch');
 
-    if (isEditor) {
+    if (Editor) {
         editorSwitch.checked = true;
     } else {
         editorSwitch.checked = false;
@@ -411,16 +431,16 @@ function initSocket(username) {
         
         if (data.Action == "authenticated")
         {   
-            adminId = data.ClientId
-            populateClients(clients, isAdmin);
+            console.log("Authenticated", data.ClientId)
             if (data.ClientId == clientId) 
             {
-                showAdminNotification("You are now the admin and editor!", true,true); 
-                isAdmin = true; 
-                populateClients(clients, isAdmin);
-                const editorSwitch = document.getElementById('editorSwitch');
-                editorSwitch.disabled = false;
+                    showAdminNotification("You are now the admin and editor!", true,true); 
+                    const editorSwitch = document.getElementById('editorSwitch');
+                    editorSwitch.disabled = false;
             }
+            adminId = data.ClientId
+            const isAdmin = (adminId == clientId)
+            populateClients(clients, isAdmin);
         }
         else if (data.Action == "failed")
         {
@@ -432,7 +452,7 @@ function initSocket(username) {
             if (data.ClientId == clientId) 
             {
                 showAdminNotification("You are not admin anymore", false,false); 
-                isAdmin = false; 
+                const isAdmin = (adminId == clientId);
                 populateClients(clients, isAdmin);
                 const editorSwitch = document.getElementById('editorSwitch');
                 editorSwitch.disabled = true;
@@ -458,14 +478,16 @@ function initSocket(username) {
         } 
         else if (data.Action == "sayhello")
         {
+            adminId = data.AdminId;
             clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            adminId = data.AdminId
+            const isAdmin = (adminId == clientId);
             populateClients(clients, isAdmin);
         }
         else if (data.Action == "byebye")
         {
             clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            populateClients(clients);
+            const isAdmin = (adminId == clientId);
+            populateClients(clients, isAdmin);
         }
         else if (data.Action == "transfer")
         {
@@ -476,8 +498,9 @@ function initSocket(username) {
         {
             const msg = data.ChatMsg;
             const username = data.ClientId;
+            const clientColor = getClientColor(username);
             const messageElement = document.createElement('p');
-            messageElement.innerHTML = `<strong>${username}:</strong> ${msg}`;
+            messageElement.innerHTML = `<strong style="color: ${clientColor}">${username}:</strong> ${msg}`;
             chatMessages.appendChild(messageElement);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -493,4 +516,18 @@ function initSocket(username) {
     socket.onclose = function() {
         console.log("WebSocket connection closed");
     };
+}
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+function getClientColor(clientId) {
+    if (!clientColors[clientId]) {
+        clientColors[clientId] = getRandomColor();
+    }
+    return clientColors[clientId];
 }
