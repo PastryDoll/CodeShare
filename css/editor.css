@@ -1,0 +1,69 @@
+#editorContainer {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 0px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+#editor {
+    flex: 1;
+    border: 0px solid #ddd;
+    font-size: 14px;
+    margin-bottom: 10px;
+    height: 80%;
+}
+#output {
+    height: 20%;
+    border: 0px solid #ddd;
+    padding: 0px;
+    font-size: 14px;
+    background-color: #f4f4f4;
+    overflow-y: auto;
+}
+
+#editor.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+}
+
+#editorContainer.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9998;
+    background-color: white;
+}
+
+/* Fullscreen Button styling */
+#fullscreenButton {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    background-color: rgba(0, 0, 0, 0.5); /* Slightly transparent black background */
+    color: white;
+    font-size: 18px; /* Adjust the size of the arrows */
+    border: none;
+    cursor: pointer;
+    opacity: 0; /* Fully transparent */
+    transition: opacity 0.3s ease; /* Fade-in transition */
+    z-index: 1000; /* Ensure it's above other content */
+    border-radius: 5px;
+}
+
+/* Button hover effect on editor */
+#editorContainer:hover #fullscreenButton {
+    opacity: 1; /* Fully visible on hover */
+}
+
+/* Optional hover effect for the button itself */
+#fullscreenButton:hover {
+    background-color: rgba(0, 0, 0, 0.7); /* Darker on hover */
+}

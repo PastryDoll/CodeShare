@@ -142,10 +142,8 @@ func handleConnections(ws *websocket.Conn) {
 
 	log.Printf("Client %s connected", clientId)
 
-	msg.ClientId = clientId
-	msg.AdminId = adminId
-
 	// Broadcast new client to everyone
+	msg.ClientId = clientId
 	msg.AdminId = adminId
 	msg.Action = "sayhello"
 	broadcast <- msg

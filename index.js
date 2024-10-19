@@ -180,8 +180,9 @@ document.addEventListener("DOMContentLoaded", function()
             mode: "python", 
             lineNumbers: true, 
             theme: "dracula", 
-            tabSize: 4 
+            tabSize: 4
         });
+        editor.setOption("readOnly", true);
     
         editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
         editor.setSize("100%","100%");
@@ -191,6 +192,42 @@ document.addEventListener("DOMContentLoaded", function()
             if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
                 console.log("Sending message")
                 socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
+            }
+        });
+
+
+    }
+
+    // Editor Fullscreen
+    {
+        document.getElementById('fullscreenButton').addEventListener('click', function () {
+            const editorContainer = document.getElementById('editorContainer');
+            const editor = document.getElementById('editor');
+        
+            if (!document.fullscreenElement) {
+                // Enter fullscreen mode
+                if (editorContainer.requestFullscreen) {
+                    editorContainer.requestFullscreen();
+                } else if (editorContainer.webkitRequestFullscreen) { // for Safari
+                    editorContainer.webkitRequestFullscreen();
+                } else if (editorContainer.msRequestFullscreen) { // for IE11
+                    editorContainer.msRequestFullscreen();
+                }
+        
+                editor.classList.add('fullscreen');
+                editorContainer.classList.add('fullscreen');
+            } else {
+                // Exit fullscreen mode
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { // for Safari
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { // for IE11
+                    document.msExitFullscreen();
+                }
+        
+                editor.classList.remove('fullscreen');
+                editorContainer.classList.remove('fullscreen');
             }
         });
     }
@@ -363,8 +400,10 @@ function setEditor(Editor){
 
     if (Editor) {
         editorSwitch.checked = true;
+        editor.setOption("readOnly", false);
     } else {
         editorSwitch.checked = false;
+        editor.setOption("readOnly", true);
     }
 
 }
@@ -491,7 +530,7 @@ function initSocket(username) {
         }
         else if (data.Action == "transfer")
         {
-            if (data.TransferId == clientId) {setEditor(true);}
+        if (data.TransferId == clientId) {setEditor(true);}
             else {setEditor(false);}
         }
         else if (data.Action == "chat")

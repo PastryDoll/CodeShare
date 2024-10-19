@@ -78,28 +78,6 @@
             top: 0px;
             cursor: ew-resize;
         }
-        #editorContainer {
-            display: flex;
-            flex-direction: column;
-            padding: 0px;
-            box-sizing: border-box;
-            overflow: hidden;
-        }
-        #editor {
-            flex: 1;
-            border: 0px solid #ddd;
-            font-size: 14px;
-            margin-bottom: 10px;
-            height: 80%;
-        }
-        #output {
-            height: 20%;
-            border: 0px solid #ddd;
-            padding: 0px;
-            font-size: 14px;
-            background-color: #f4f4f4;
-            overflow-y: auto;
-        }
         footer {
             padding: 10px;
             background-color: #89aaf2;
@@ -133,6 +111,7 @@
     <link rel="stylesheet" href="css/chat.css">
     <link rel="stylesheet" href="css/createuser.css">
     <link rel="stylesheet" href="css/contextmenu.css">
+    <link rel="stylesheet" href="css/editor.css">
 </head>
 <body>
     <div id="usernameModal" class="modal">
@@ -180,6 +159,11 @@
 
         <div id="editorContainer">
             <textarea id="editor"></textarea>
+            <button id="fullscreenButton">
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                    <path d="M4 10V4h6M4 4l6 6M14 20h6v-6M20 20l-6-6" stroke="white" stroke-width="2" fill="none"/>
+                </svg>
+            </button>
             <button id="runButton">Run Code</button>
             <span id="output-label" class="output-label">Output Window:</span>
             <!-- Using <pre> here so it doest ignore newlines \n, maybe there is a way to do with div -->
@@ -209,6 +193,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.js"></script>
 
-    <script src="editor.js"></script>
+    <script src="index.js"></script>
 </body>
 </html>
