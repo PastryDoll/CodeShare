@@ -112,7 +112,7 @@ const chatMessages = document.getElementById('messages');
         if (message) {
             console.log("Sending message:", message);
             addMessageAiChatWindow(message, AIchatMessages, "You", "#6666ff");
-            let aiMessageElement = addMessageAiChatWindow("", AIchatMessages, "AI Assistant", "#ff6666");
+            let aiMessageElement = addMessageAiChatWindow("...", AIchatMessages, "AI Assistant", "#ff6666");
             addNewMessage('user', message);
             sendNewMessage(aiMessageElement);
             messageInput.value = ''; 
@@ -271,6 +271,52 @@ const chatMessages = document.getElementById('messages');
     });
 }
 
+// Editor Upload file
+{
+    const fileInput = document.getElementById('fileInput');
+    const fileInputLabel = document.getElementById('fileInputLabel');
+    const editor = document.getElementById('editor');
+
+    // Handle file selection via input
+    fileInput.addEventListener('change', handleFile);
+
+    // Handle file drag and drop
+    fileInputLabel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileInputLabel.classList.add('dragging'); // Optional for drag styling
+    });
+
+    fileInputLabel.addEventListener('dragleave', () => {
+        fileInputLabel.classList.remove('dragging'); // Optional for drag styling
+    });
+
+    fileInputLabel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileInputLabel.classList.remove('dragging'); // Optional for drag styling
+        const file = e.dataTransfer.files[0]; // Get the first file from the drop
+        if (file) {
+            readFile(file);
+        }
+    });
+
+    // Function to handle file reading
+    function handleFile(event) {
+        const file = event.target.files[0]; // Get the selected file
+        if (file) {
+            readFile(file);
+        }
+    }
+
+    // Function to read the file and display content in the editor
+    function readFile(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            editor.value = e.target.result; // Set the file content in the textarea
+        };
+        reader.readAsText(file);
+    }
+}
+
 // Custom context menu
 {
     const customMenu = document.getElementById('customMenu');
@@ -294,7 +340,7 @@ const chatMessages = document.getElementById('messages');
     {
         const selectedText = editor.getSelection(); 
         addMessageAiChatWindow(selectedText, AIchatMessages, "You", "#6666ff");
-        let aiMessageElement = addMessageAiChatWindow("", AIchatMessages, "AI Assistant", "#ff6666");
+        let aiMessageElement = addMessageAiChatWindow("...", AIchatMessages, "AI Assistant", "#ff6666");
         console.log("Selected text", selectedText); 
         customMenu.style.display = 'none';
         addNewMessage('user', selectedText);
