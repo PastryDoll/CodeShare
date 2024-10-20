@@ -13,6 +13,7 @@
     margin-bottom: 10px;
     height: 80%;
 }
+
 #output {
     height: 20%;
     border: 0px solid #ddd;
@@ -41,29 +42,52 @@
     background-color: white;
 }
 
-/* Fullscreen Button styling */
-#fullscreenButton {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    padding: 5px 10px;
-    background-color: rgba(0, 0, 0, 0.5); /* Slightly transparent black background */
+/* Editor Menu */
+#editorMenu {
+    display: flex;
+    justify-content: space-between;
+    background-color: #454752;
+    padding: 1px;
+    border-bottom: 0px solid #454752;
+}
+
+.left-buttons {
+    display: flex;
+}
+
+#editorMenu button {
+    margin-right: 10px;
+    padding: 0px 5px;
+    background-color: #454752;
+    border: none;
     color: white;
-    font-size: 18px; /* Adjust the size of the arrows */
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    padding-top: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 3px;
+}
+
+#editorMenu button:hover {
+    background-color: #171c21;
+}
+
+#fullscreenButton {
+    margin-left: auto;
+    background-color: #28a745;
+    padding: 8px;
     border: none;
     cursor: pointer;
-    opacity: 0; /* Fully transparent */
-    transition: opacity 0.3s ease; /* Fade-in transition */
-    z-index: 1000; /* Ensure it's above other content */
-    border-radius: 5px;
+    border-radius: 4px;
 }
 
-/* Button hover effect on editor */
-#editorContainer:hover #fullscreenButton {
-    opacity: 1; /* Fully visible on hover */
+#fullscreenButton svg {
+    display: none; 
 }
 
-/* Optional hover effect for the button itself */
-#fullscreenButton:hover {
-    background-color: rgba(0, 0, 0, 0.7); /* Darker on hover */
+#fullscreenButton .show {
+    display: inline-block;
 }

@@ -242,29 +242,34 @@ const chatMessages = document.getElementById('messages');
     document.getElementById('fullscreenButton').addEventListener('click', function () {
         const editorContainer = document.getElementById('editorContainer');
         const editor = document.getElementById('editor');
+        const fullscreenIcon = document.getElementById('fullscreenIcon');
+        const minimizeIcon = document.getElementById('minimizeIcon');
     
         if (!document.fullscreenElement) {
             // Enter fullscreen mode
             if (editorContainer.requestFullscreen) {
-                editorContainer.requestFullscreen();
+                editorContainer.requestFullscreen()
             } else if (editorContainer.webkitRequestFullscreen) { // for Safari
-                editorContainer.webkitRequestFullscreen();
+                editorContainer.webkitRequestFullscreen()
             } else if (editorContainer.msRequestFullscreen) { // for IE11
-                editorContainer.msRequestFullscreen();
+                editorContainer.msRequestFullscreen()
             }
-    
+            fullscreenIcon.classList.remove('show');
+            minimizeIcon.classList.add('show');
             editor.classList.add('fullscreen');
             editorContainer.classList.add('fullscreen');
         } else {
             // Exit fullscreen mode
             if (document.exitFullscreen) {
-                document.exitFullscreen();
+                document.exitFullscreen()
             } else if (document.webkitExitFullscreen) { // for Safari
-                document.webkitExitFullscreen();
+                document.webkitExitFullscreen()
             } else if (document.msExitFullscreen) { // for IE11
                 document.msExitFullscreen();
             }
-    
+            
+            fullscreenIcon.classList.add('show');
+            minimizeIcon.classList.remove('show');
             editor.classList.remove('fullscreen');
             editorContainer.classList.remove('fullscreen');
         }
@@ -272,50 +277,50 @@ const chatMessages = document.getElementById('messages');
 }
 
 // Editor Upload file
-{
-    const fileInput = document.getElementById('fileInput');
-    const fileInputLabel = document.getElementById('fileInputLabel');
-    const editor = document.getElementById('editor');
+// {
+//     const fileInput = document.getElementById('fileInput');
+//     const fileInputLabel = document.getElementById('fileInputLabel');
+//     const editor = document.getElementById('editor');
 
-    // Handle file selection via input
-    fileInput.addEventListener('change', handleFile);
+//     // Handle file selection via input
+//     fileInput.addEventListener('change', handleFile);
 
-    // Handle file drag and drop
-    fileInputLabel.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        fileInputLabel.classList.add('dragging'); // Optional for drag styling
-    });
+//     // Handle file drag and drop
+//     fileInputLabel.addEventListener('dragover', (e) => {
+//         e.preventDefault();
+//         fileInputLabel.classList.add('dragging'); // Optional for drag styling
+//     });
 
-    fileInputLabel.addEventListener('dragleave', () => {
-        fileInputLabel.classList.remove('dragging'); // Optional for drag styling
-    });
+//     fileInputLabel.addEventListener('dragleave', () => {
+//         fileInputLabel.classList.remove('dragging'); // Optional for drag styling
+//     });
 
-    fileInputLabel.addEventListener('drop', (e) => {
-        e.preventDefault();
-        fileInputLabel.classList.remove('dragging'); // Optional for drag styling
-        const file = e.dataTransfer.files[0]; // Get the first file from the drop
-        if (file) {
-            readFile(file);
-        }
-    });
+//     fileInputLabel.addEventListener('drop', (e) => {
+//         e.preventDefault();
+//         fileInputLabel.classList.remove('dragging'); // Optional for drag styling
+//         const file = e.dataTransfer.files[0]; // Get the first file from the drop
+//         if (file) {
+//             readFile(file);
+//         }
+//     });
 
-    // Function to handle file reading
-    function handleFile(event) {
-        const file = event.target.files[0]; // Get the selected file
-        if (file) {
-            readFile(file);
-        }
-    }
+//     // Function to handle file reading
+//     function handleFile(event) {
+//         const file = event.target.files[0]; // Get the selected file
+//         if (file) {
+//             readFile(file);
+//         }
+//     }
 
-    // Function to read the file and display content in the editor
-    function readFile(file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            editor.value = e.target.result; // Set the file content in the textarea
-        };
-        reader.readAsText(file);
-    }
-}
+//     // Function to read the file and display content in the editor
+//     function readFile(file) {
+//         const reader = new FileReader();
+//         reader.onload = function(e) {
+//             editor.value = e.target.result; // Set the file content in the textarea
+//         };
+//         reader.readAsText(file);
+//     }
+// }
 
 // Custom context menu
 {
@@ -323,6 +328,7 @@ const chatMessages = document.getElementById('messages');
     const editorContainer = editor.getWrapperElement();
     editorContainer.addEventListener('contextmenu', function(e) {
         e.preventDefault(); 
+        console.log("hi")
         customMenu.style.display = 'block';
         customMenu.style.left = `${e.pageX}px`;
         customMenu.style.top = `${e.pageY}px`;
