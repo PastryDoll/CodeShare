@@ -13,343 +13,376 @@ let clientColors = {}; // Modified in getClientColor
 
 document.addEventListener("DOMContentLoaded", function() 
 {
-/////////UI-STUFF////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-//// Divs control
-//
 
-    // Username initial window
+// Username initial window
+{
+    const modal = document.getElementById("usernameModal");
+    const submitBtn = document.getElementById("submitBtn");
+    submitBtn.addEventListener("click", async function() 
     {
-        const modal = document.getElementById("usernameModal");
-        const submitBtn = document.getElementById("submitBtn");
-        submitBtn.addEventListener("click", async function() 
-        {
-            const usernameInput = document.getElementById("usernametext").value;
-            if (usernameInput) {
-                userName = usernameInput;
-                initSocket(userName);       
-            } else {
-                alert("This user name is in use or invalid");
-            }
-        });
-    }
-
-    // Webcam
-    {
-        const video = document.getElementById('video');
-        let stream
-        async function startCamera() {
-            try {
-                const constraints = {
-                    video: {
-                        facingMode: 'user', 
-                        width: { ideal: 1280 }, 
-                        height: { ideal: 720 }, 
-                        frameRate: { ideal: 30, max: 60 } 
-                    }
-                };
-                
-                // stream = await navigator.mediaDevices.getUserMedia(constraints);
-                // video.srcObject = stream
-            } catch (error) {
-              console.error('Error accessing the camera: ', error);
-              alert('Unable to access camera. Please check your permissions.');
-            }
+        const usernameInput = document.getElementById("usernametext").value;
+        if (usernameInput) {
+            userName = usernameInput;
+            initSocket(userName);       
+        } else {
+            alert("This user name is in use or invalid");
         }
-    
-        function stopCamera()
-        {
-            if (stream) 
-            {
-                video.srcObject = null;
-            }
-        }
-        startCamera()
-    }
+    });
+}
 
-    // Chat
-    {
-        const sendButton = document.getElementById('send');
-        const messageInput = document.getElementById('message');
-        
-        sendButton.onclick = function() {
-            const message = messageInput.value;
-            if (message) {
-                console.log("Sending message:", message);
-                socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
-                messageInput.value = '';  // Clear the input field
-            }
-        };
-    
-        document.getElementById('chat-header').addEventListener('click', function() {
-            const chatTab = document.getElementById('chat-tab');
-            const isCollapsed = chatTab.classList.contains('collapsed');
-    
-            chatTab.classList.remove('collapsed', 'expanded');
-    
-            if (isCollapsed) {
-                chatTab.style.overflow = 'hidden';
-                chatTab.classList.add('expanded');
-                setTimeout(function() {
-                    chatTab.style.overflow = 'visible'; 
-                }, 300); 
-            } else {
-                chatTab.classList.add('collapsed');
-                chatTab.style.overflow = 'hidden';
-            }
-        });
-    }
-
-    // IsEditor switch
-    {
-        const editorSwitch = document.getElementById('editorSwitch');
-        editorSwitch.addEventListener('change', function() {
-            const isAdmin = (clientId == adminId)
-            if (editorSwitch.checked) {
-                const radios = document.querySelectorAll('input[name="clientToggle"]');
-                radios.forEach(radio => radio.checked = false);
-                handleClientToggle(clientId)
-
-            }
-            else if (isAdmin && !editorSwitch.checked) {
-                editorSwitch.checked = true;
-                console.log('Admin cannot uncheck this switch.');
-            }
-        });
-    }
-
-    // Admin Panel
-    {
-        const adminPanelDiv = document.getElementById('adminPanel');
-        const adminPanelResizer = document.getElementById('resizer-left')
-    
-        adminPanelResizer.addEventListener('mousedown', function(e) {
-            e.preventDefault()
-            window.addEventListener('mousemove', resizeLeft)
-            window.addEventListener('mouseup', stopResizeLeft)
-        })
-    
-        function resizeLeft(e) {
-            const adminPanelComputedStyle = window.getComputedStyle(adminPanelDiv);
-            const adminPanelResizerComputedStyle = window.getComputedStyle(adminPanelResizer);
-            const padding = parseInt(adminPanelComputedStyle.paddingLeft); 
-            const resizerWidth = parseInt(adminPanelResizerComputedStyle.width);
-    
-            adminPanelDiv.style.width = e.pageX - padding - resizerWidth + 'px';
-        }
-          
-        function stopResizeLeft() {
-            window.removeEventListener('mousemove', resizeLeft)
-        }
-    }
-
-    // Client Panel
-    {
-        const clientPanelDiv = document.getElementById('clientsPanel');
-        const clientPanelResizer = document.getElementById('resizer-right');
-        
-        let startX;
-        let startWidth;
-        
-        clientPanelResizer.addEventListener('mousedown', (e) => {
-            startX = e.clientX;
-            startWidth = parseInt(document.defaultView.getComputedStyle(clientPanelDiv).width, 10);
-            document.documentElement.addEventListener('mousemove', resizePanel);
-            document.documentElement.addEventListener('mouseup', stopResize);
-        });
-        
-        function resizePanel(e) {
-            const diffX = startX - e.clientX; 
-            const newWidth = startWidth + diffX; 
-        
-            if (newWidth >= 150 && newWidth <= 500) {
-                clientPanelDiv.style.width = `${newWidth}px`;
-            }
-        }
-
-        function stopResize() {
-            document.documentElement.removeEventListener('mousemove', resizePanel);
-            document.documentElement.removeEventListener('mouseup', stopResize);
-        }
-    }
-
-    // Editor (Editor is Global)
-    {
-        const editor_element = document.getElementById("editor")
-        editor = CodeMirror.fromTextArea(editor_element, {
-            mode: "python", 
-            lineNumbers: true, 
-            theme: "dracula", 
-            tabSize: 4
-        });
-        editor.setOption("readOnly", true);
-    
-        editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
-        editor.setSize("100%","100%");
-        editor.on("change", function(instance, changeObj) {
-            console.log(changeObj)
-            var code = instance.getValue();
-            if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
-                console.log("Sending message")
-                socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
-            }
-        });
-
-
-    }
-
-    // Editor Fullscreen
-    {
-        document.getElementById('fullscreenButton').addEventListener('click', function () {
-            const editorContainer = document.getElementById('editorContainer');
-            const editor = document.getElementById('editor');
-        
-            if (!document.fullscreenElement) {
-                // Enter fullscreen mode
-                if (editorContainer.requestFullscreen) {
-                    editorContainer.requestFullscreen();
-                } else if (editorContainer.webkitRequestFullscreen) { // for Safari
-                    editorContainer.webkitRequestFullscreen();
-                } else if (editorContainer.msRequestFullscreen) { // for IE11
-                    editorContainer.msRequestFullscreen();
+// Webcam
+{
+    const video = document.getElementById('video');
+    let stream
+    async function startCamera() {
+        try {
+            const constraints = {
+                video: {
+                    facingMode: 'user', 
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 }, 
+                    frameRate: { ideal: 30, max: 60 } 
                 }
-        
-                editor.classList.add('fullscreen');
-                editorContainer.classList.add('fullscreen');
-            } else {
-                // Exit fullscreen mode
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) { // for Safari
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) { // for IE11
-                    document.msExitFullscreen();
-                }
-        
-                editor.classList.remove('fullscreen');
-                editorContainer.classList.remove('fullscreen');
-            }
-        });
-    }
-    
-    // Custom context menu
-    {
-        const customMenu = document.getElementById('customMenu');
-        const editorContainer = editor.getWrapperElement();
-        editorContainer.addEventListener('contextmenu', function(e) {
-            e.preventDefault(); 
-            customMenu.style.display = 'block';
-            customMenu.style.left = `${e.pageX}px`;
-            customMenu.style.top = `${e.pageY}px`;
-        });
-        
-        document.addEventListener('mousedown', function(e) {
-            setTimeout(function() {
-                if (!customMenu.contains(e.target)) {
-                    customMenu.style.display = 'none';
-                }
-            }, 50); 
-        });
-        
-        document.getElementById('menu1').addEventListener('click', async function() 
-        {
-            const selectedText = editor.getSelection(); 
-            console.log("Selected text", selectedText); 
-            customMenu.style.display = 'none';
-            const data = {
-                model: "professor",
-                prompt: selectedText
             };
-            let AIResponse = ""
-            fetch("http://localhost:11434/api/generate", 
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => 
-            {
-                if (!response.ok) 
-                {
-                    throw new Error("Network response was not ok " + response.statusText);
-                }
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
-                function readStream() 
-                {   
-                    return reader.read().then(({ done, value }) => 
-                    {
-                        if (done) {return;}
-                        let newElement = decoder.decode(value, { stream: true });
-                        newElement =  JSON.parse(newElement).response;
-                        console.log("Streamed Response Part:", newElement);
-                        AIResponse += newElement;
-                        return readStream();
-                    });
-                }
-                return readStream();
-            })  
-            .then(() => runButton.disabled = false)
-            .catch(error => {console.log("Error: " + error.message)});
-        });
+            
+            // stream = await navigator.mediaDevices.getUserMedia(constraints);
+            // video.srcObject = stream
+        } catch (error) {
+            console.error('Error accessing the camera: ', error);
+            alert('Unable to access camera. Please check your permissions.');
+        }
     }
-    
-    // Run Button
-    {
 
-        let outputElement = document.getElementById("output");
-        document.getElementById("runButton").addEventListener("click", function() {
-            runButton.disabled = true;
-            var code = editor.getValue();
-            let FirstRead = true;
-            outputElement.textContent = "Processing...";
-    
-            // @NOTE So I tried XHR but... It works for Safari, but not for Chrome.. It looks like the problem is that Chrome
-            // has a bigger buffer for the message and so the output dont feels smooth --Caio.
-            // Send code and handle output
-            fetch("/run", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ code: code })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Network response was not ok " + response.statusText);
-                }
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
-    
-                function readStream() 
-                {   
-                    return reader.read().then(({ done, value }) => 
-                    {
-                        if (done) {return;}
-                        if (FirstRead) {
-                            outputElement.textContent = ""; 
-                            FirstRead = false; 
-                        }
-                        let newElement = decoder.decode(value, { stream: true });
-                        console.log("Streamed Response Part:", newElement);
-                        outputElement.textContent += newElement;
-                        return readStream();
-                    });
-                }
-                return readStream();
-            })
-            .then(() => runButton.disabled = false, console.log(outputElement.textContent))
-            .catch(error => {
-                document.getElementById("output").textContent = "Error: " + error.message;
-            });
-        });
-    
-        document.getElementById("sendPassword").addEventListener("click", function() {
-        sendPassword(null)
-        })
+    function stopCamera()
+    {
+        if (stream) 
+        {
+            video.srcObject = null;
+        }
     }
+    startCamera()
+}
+
+// Chat
+{
+    const sendButton = document.getElementById('send');
+    const messageInput = document.getElementById('message');
+    
+    sendButton.onclick = function() {
+        const message = messageInput.value;
+        if (message) {
+            console.log("Sending message:", message);
+            socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
+            messageInput.value = '';  // Clear the input field
+        }
+    };
+
+    document.getElementById('chat-header').addEventListener('click', function() {
+        const chatTab = document.getElementById('chat-tab');
+        const isCollapsed = chatTab.classList.contains('collapsed');
+
+        chatTab.classList.remove('collapsed', 'expanded');
+
+        if (isCollapsed) {
+            chatTab.style.overflow = 'hidden';
+            chatTab.classList.add('expanded');
+            setTimeout(function() {
+                chatTab.style.overflow = 'visible'; 
+            }, 300); 
+        } else {
+            chatTab.classList.add('collapsed');
+            chatTab.style.overflow = 'hidden';
+        }
+    });
+}
+
+// AI Chat
+{
+    const sendButton = document.getElementById('send-ai');
+    const messageInput = document.getElementById('message-ai');
+    
+    sendButton.onclick = function() {
+        const message = messageInput.value;
+        if (message) {
+            console.log("Sending message:", message);
+            // socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
+            messageInput.value = '';  // Clear the input field
+        }
+    };
+
+    document.getElementById('ai-header').addEventListener('click', function() {
+        const chatTab = document.getElementById('ai-tab');
+        const isCollapsed = chatTab.classList.contains('collapsed');
+
+        chatTab.classList.remove('collapsed', 'expanded');
+
+        if (isCollapsed) {
+            chatTab.style.overflow = 'hidden';
+            chatTab.classList.add('expanded');
+            setTimeout(function() {
+                chatTab.style.overflow = 'visible'; 
+            }, 300); 
+        } else {
+            chatTab.classList.add('collapsed');
+            chatTab.style.overflow = 'hidden';
+        }
+    });
+}
+
+// IsEditor switch
+{
+    const editorSwitch = document.getElementById('editorSwitch');
+    editorSwitch.addEventListener('change', function() {
+        const isAdmin = (clientId == adminId)
+        if (editorSwitch.checked) {
+            const radios = document.querySelectorAll('input[name="clientToggle"]');
+            radios.forEach(radio => radio.checked = false);
+            handleClientToggle(clientId)
+
+        }
+        else if (isAdmin && !editorSwitch.checked) {
+            editorSwitch.checked = true;
+            console.log('Admin cannot uncheck this switch.');
+        }
+    });
+}
+
+// Admin Panel
+{
+    const adminPanelDiv = document.getElementById('adminPanel');
+    const adminPanelResizer = document.getElementById('resizer-left')
+
+    adminPanelResizer.addEventListener('mousedown', function(e) {
+        e.preventDefault()
+        window.addEventListener('mousemove', resizeLeft)
+        window.addEventListener('mouseup', stopResizeLeft)
+    })
+
+    function resizeLeft(e) {
+        const adminPanelComputedStyle = window.getComputedStyle(adminPanelDiv);
+        const adminPanelResizerComputedStyle = window.getComputedStyle(adminPanelResizer);
+        const padding = parseInt(adminPanelComputedStyle.paddingLeft); 
+        const resizerWidth = parseInt(adminPanelResizerComputedStyle.width);
+
+        adminPanelDiv.style.width = e.pageX - padding - resizerWidth + 'px';
+    }
+        
+    function stopResizeLeft() {
+        window.removeEventListener('mousemove', resizeLeft)
+    }
+}
+
+// Client Panel
+{
+    const clientPanelDiv = document.getElementById('clientsPanel');
+    const clientPanelResizer = document.getElementById('resizer-right');
+    
+    let startX;
+    let startWidth;
+    
+    clientPanelResizer.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        startWidth = parseInt(document.defaultView.getComputedStyle(clientPanelDiv).width, 10);
+        document.documentElement.addEventListener('mousemove', resizePanel);
+        document.documentElement.addEventListener('mouseup', stopResize);
+    });
+    
+    function resizePanel(e) {
+        const diffX = startX - e.clientX; 
+        const newWidth = startWidth + diffX; 
+    
+        if (newWidth >= 150 && newWidth <= 500) {
+            clientPanelDiv.style.width = `${newWidth}px`;
+        }
+    }
+
+    function stopResize() {
+        document.documentElement.removeEventListener('mousemove', resizePanel);
+        document.documentElement.removeEventListener('mouseup', stopResize);
+    }
+}
+
+// Editor (Editor is Global)
+{
+    const editor_element = document.getElementById("editor")
+    editor = CodeMirror.fromTextArea(editor_element, {
+        mode: "python", 
+        lineNumbers: true, 
+        theme: "dracula", 
+        tabSize: 4
+    });
+    editor.setOption("readOnly", true);
+
+    editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    editor.setSize("100%","100%");
+    editor.on("change", function(instance, changeObj) {
+        console.log(changeObj)
+        var code = instance.getValue();
+        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
+            console.log("Sending message")
+            socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
+        }
+    });
+
+
+}
+
+// Editor Fullscreen
+{
+    document.getElementById('fullscreenButton').addEventListener('click', function () {
+        const editorContainer = document.getElementById('editorContainer');
+        const editor = document.getElementById('editor');
+    
+        if (!document.fullscreenElement) {
+            // Enter fullscreen mode
+            if (editorContainer.requestFullscreen) {
+                editorContainer.requestFullscreen();
+            } else if (editorContainer.webkitRequestFullscreen) { // for Safari
+                editorContainer.webkitRequestFullscreen();
+            } else if (editorContainer.msRequestFullscreen) { // for IE11
+                editorContainer.msRequestFullscreen();
+            }
+    
+            editor.classList.add('fullscreen');
+            editorContainer.classList.add('fullscreen');
+        } else {
+            // Exit fullscreen mode
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { // for Safari
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { // for IE11
+                document.msExitFullscreen();
+            }
+    
+            editor.classList.remove('fullscreen');
+            editorContainer.classList.remove('fullscreen');
+        }
+    });
+}
+
+// Custom context menu
+{
+    const customMenu = document.getElementById('customMenu');
+    const chatMessages = document.getElementById('messages-ai');
+    const editorContainer = editor.getWrapperElement();
+    editorContainer.addEventListener('contextmenu', function(e) {
+        e.preventDefault(); 
+        customMenu.style.display = 'block';
+        customMenu.style.left = `${e.pageX}px`;
+        customMenu.style.top = `${e.pageY}px`;
+    });
+    
+    document.addEventListener('mousedown', function(e) {
+        setTimeout(function() {
+            if (!customMenu.contains(e.target)) {
+                customMenu.style.display = 'none';
+            }
+        }, 50); 
+    });
+    
+    document.getElementById('menu1').addEventListener('click', async function() 
+    {
+        aiMessageElement = addMessageAiChat("", chatMessages);
+        const selectedText = editor.getSelection(); 
+        console.log("Selected text", selectedText); 
+        customMenu.style.display = 'none';
+        const data = {
+            model: "professor",
+            prompt: selectedText
+        };
+        let AIResponse = ""
+        fetch("http://localhost:11434/api/generate", 
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => 
+        {
+            if (!response.ok) 
+            {
+                throw new Error("Network response was not ok " + response.statusText);
+            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            function readStream() 
+            {   
+                return reader.read().then(({ done, value }) => 
+                {
+                    if (done) {return;}
+                    let newElement = decoder.decode(value, { stream: true });
+                    newElement =  JSON.parse(newElement).response;
+                    console.log("Streamed Response Part:", newElement);
+                    AIResponse += newElement;
+                    aiMessageElement.textContent = AIResponse;
+                    return readStream();
+                });
+            }
+            return readStream();
+        })  
+        .then(() => runButton.disabled = false)
+        .catch(error => {console.log("Error: " + error.message)});
+    });
+}
+
+// Run Button
+{
+
+    let outputElement = document.getElementById("output");
+    document.getElementById("runButton").addEventListener("click", function() {
+        runButton.disabled = true;
+        var code = editor.getValue();
+        let FirstRead = true;
+        outputElement.textContent = "Processing...";
+
+        // @NOTE So I tried XHR but... It works for Safari, but not for Chrome.. It looks like the problem is that Chrome
+        // has a bigger buffer for the message and so the output dont feels smooth --Caio.
+        // Send code and handle output
+        fetch("/run", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ code: code })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Network response was not ok " + response.statusText);
+            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+
+            function readStream() 
+            {   
+                return reader.read().then(({ done, value }) => 
+                {
+                    if (done) {return;}
+                    if (FirstRead) {
+                        outputElement.textContent = ""; 
+                        FirstRead = false; 
+                    }
+                    let newElement = decoder.decode(value, { stream: true });
+                    console.log("Streamed Response Part:", newElement);
+                    outputElement.textContent += newElement;
+                    return readStream();
+                });
+            }
+            return readStream();
+        })
+        .then(() => runButton.disabled = false, console.log(outputElement.textContent))
+        .catch(error => {
+            document.getElementById("output").textContent = "Error: " + error.message;
+        });
+    });
+
+    document.getElementById("sendPassword").addEventListener("click", function() {
+    sendPassword(null)
+    })
+}
+
 });
 
 function sendPassword(password_input) {
@@ -569,4 +602,11 @@ function getClientColor(clientId) {
         clientColors[clientId] = getRandomColor();
     }
     return clientColors[clientId];
+}
+function addMessageAiChat(message, container) {
+    const messageElement = document.createElement('p');
+    messageElement.innerHTML = message;
+    container.appendChild(messageElement);
+    container.scrollTop = container.scrollHeight;
+    return messageElement
 }
