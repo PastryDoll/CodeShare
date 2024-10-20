@@ -1,3 +1,5 @@
+import { sendNewMessage, addNewMessage } from './components/ai_assistant_history.js';
+
 // Global state
 // TODO(CAIO) - Clean up global variables that dont need to be global
 const savedPassword = localStorage.getItem('adminPassword');
@@ -14,6 +16,10 @@ let clientColors = {}; // Modified in getClientColor
 document.addEventListener("DOMContentLoaded", function() 
 {
 
+// Init hot DOM elements
+const AIchatMessages = document.getElementById('messages-ai');
+const chatMessages = document.getElementById('messages');
+
 // Username initial window
 {
     const modal = document.getElementById("usernameModal");
@@ -23,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function()
         const usernameInput = document.getElementById("usernametext").value;
         if (usernameInput) {
             userName = usernameInput;
-            initSocket(userName);       
+            initSocket(userName, chatMessages);       
         } else {
             alert("This user name is in use or invalid");
         }
@@ -105,8 +111,12 @@ document.addEventListener("DOMContentLoaded", function()
         const message = messageInput.value;
         if (message) {
             console.log("Sending message:", message);
-            // socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
-            messageInput.value = '';  // Clear the input field
+            addMessageAiChatWindow(message, AIchatMessages, "You", "#6666ff");
+            let aiMessageElement = addMessageAiChatWindow("", AIchatMessages, "AI Assistant", "#ff6666");
+            addNewMessage('user', message);
+            sendNewMessage(aiMessageElement);
+            messageInput.value = ''; 
+
         }
     };
 
@@ -264,7 +274,6 @@ document.addEventListener("DOMContentLoaded", function()
 // Custom context menu
 {
     const customMenu = document.getElementById('customMenu');
-    const chatMessages = document.getElementById('messages-ai');
     const editorContainer = editor.getWrapperElement();
     editorContainer.addEventListener('contextmenu', function(e) {
         e.preventDefault(); 
@@ -283,48 +292,13 @@ document.addEventListener("DOMContentLoaded", function()
     
     document.getElementById('menu1').addEventListener('click', async function() 
     {
-        aiMessageElement = addMessageAiChat("", chatMessages);
         const selectedText = editor.getSelection(); 
+        addMessageAiChatWindow(selectedText, AIchatMessages, "You", "#6666ff");
+        let aiMessageElement = addMessageAiChatWindow("", AIchatMessages, "AI Assistant", "#ff6666");
         console.log("Selected text", selectedText); 
         customMenu.style.display = 'none';
-        const data = {
-            model: "professor",
-            prompt: selectedText
-        };
-        let AIResponse = ""
-        fetch("http://localhost:11434/api/generate", 
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => 
-        {
-            if (!response.ok) 
-            {
-                throw new Error("Network response was not ok " + response.statusText);
-            }
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            function readStream() 
-            {   
-                return reader.read().then(({ done, value }) => 
-                {
-                    if (done) {return;}
-                    let newElement = decoder.decode(value, { stream: true });
-                    newElement =  JSON.parse(newElement).response;
-                    console.log("Streamed Response Part:", newElement);
-                    AIResponse += newElement;
-                    aiMessageElement.textContent = AIResponse;
-                    return readStream();
-                });
-            }
-            return readStream();
-        })  
-        .then(() => runButton.disabled = false)
-        .catch(error => {console.log("Error: " + error.message)});
+        addNewMessage('user', selectedText);
+        sendNewMessage(aiMessageElement);
     });
 }
 
@@ -384,7 +358,6 @@ document.addEventListener("DOMContentLoaded", function()
 }
 
 });
-
 function sendPassword(password_input) {
     let pass = password_input || document.getElementById('adminPassword').value;
     password = pass;
@@ -397,13 +370,10 @@ function sendPassword(password_input) {
         }));
     }
 }
-function closeAdminMessage() {
-    document.getElementById('adminMessage').style.display = 'none';
-}
 function showAdminNotification(text,Admin, Editor) {
     var adminMessageDiv = document.getElementById('adminMessage');
     adminMessageDiv.style.display = 'block'; 
-
+    
     if (Admin) {
         adminMessageDiv.style.backgroundColor = '#e0ffe0'; 
         adminMessageDiv.style.borderColor = '#00b300';     
@@ -413,12 +383,15 @@ function showAdminNotification(text,Admin, Editor) {
         adminMessageDiv.style.borderColor = '#ee0000';     
     }
     adminMessageDiv.innerHTML = `
-    <button id="closeAdminMessage" onclick="closeAdminMessage()">X</button>
-    <div class="messageText">${text}</div> <!-- Use a separate div for text -->
-    `; 
+    <button id="closeAdminMessage">X</button>
+    <div class="messageText">${text}</div>`; 
+    document.getElementById('closeAdminMessage').addEventListener('click', closeAdminMessage);
     setAdmin(Admin); 
     setEditor(Editor); 
     console.log(text);
+}
+function closeAdminMessage() {
+    document.getElementById('adminMessage').style.display = 'none';
 }
 function setAdmin(Admin){
     let statusCircleAdmin = document.getElementById('adminStatus');
@@ -491,7 +464,6 @@ function handleClientToggle(selectedClient) {
 function initSocket(username) {
     socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
     console.log(socket);
-    const chatMessages = document.getElementById('messages');
     socket.onopen = function() {
         console.log("Connected to WebSocket server");
     };
@@ -603,9 +575,9 @@ function getClientColor(clientId) {
     }
     return clientColors[clientId];
 }
-function addMessageAiChat(message, container) {
+function addMessageAiChatWindow(message, container, user, color) {
     const messageElement = document.createElement('p');
-    messageElement.innerHTML = message;
+    messageElement.innerHTML = `<strong style="color: ${color}">${user}:</strong> ${message}`;
     container.appendChild(messageElement);
     container.scrollTop = container.scrollHeight;
     return messageElement
