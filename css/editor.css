@@ -75,6 +75,14 @@
     background-color: #171c21;
 }
 
+#editorMenu button.active {
+    background-color: #3ba65e !important; 
+    /* 35b237 */
+}
+#editorMenu button.deactivated {
+    background-color: #cb3737 !important; 
+}
+
 #fullscreenButton {
     margin-left: auto;
     background-color: #28a745;

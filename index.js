@@ -15,10 +15,110 @@ let clientColors = {}; // Modified in getClientColor
 
 document.addEventListener("DOMContentLoaded", function() 
 {
-
+document.querySelector(".tablinks").click();
 // Init hot DOM elements
 const AIchatMessages = document.getElementById('messages-ai');
 const chatMessages = document.getElementById('messages');
+const editorSwitch = document.getElementById('editorButton');
+
+function initSocket(username) {
+    socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
+    console.log(socket);
+    socket.onopen = function() {
+        console.log("Connected to WebSocket server");
+    };
+    socket.onmessage = function(event) 
+    {
+        let data = JSON.parse(event.data);
+        
+        console.log("Got message: ", data)
+        
+        if (data.Action == "authenticated")
+        {   
+            console.log("Authenticated", data.ClientId)
+            if (data.ClientId == clientId) 
+            {
+                    showAdminNotification("You are now the admin and editor!", true,true); 
+                    editorSwitch.disabled = false;
+            }
+            adminId = data.ClientId
+            const isAdmin = (adminId == clientId)
+            populateClients(clients, isAdmin);
+        }
+        else if (data.Action == "failed")
+        {
+            socket.close();
+            alert("This user name is in use or invalid");
+        }
+        else if (data.Action == "deauthenticated")
+        {
+            if (data.ClientId == clientId) 
+            {
+                showAdminNotification("You are not admin anymore", false,false); 
+                const isAdmin = (adminId == clientId);
+                populateClients(clients, isAdmin);
+                editorSwitch.disabled = true;
+            };
+        }
+        else if (data.Action == "hello") 
+        {
+            if (!clientId)
+            {
+                const modal = document.getElementById("usernameModal");
+                modal.style.display = "none";
+                clientId = data.ClientId;
+                document.getElementById("username").textContent = clientId;
+                console.log("Your id is", clientId);
+                if (data.Password) 
+                {
+                    console.log("Your password is:", data.Password);
+                    localStorage.setItem('adminPassword', data.Password);
+                    document.getElementById('adminPassword').value = data.Password;
+                    sendPassword(savedPassword);
+                }
+            }
+        } 
+        else if (data.Action == "sayhello")
+        {
+            adminId = data.AdminId;
+            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            const isAdmin = (adminId == clientId);
+            populateClients(clients, isAdmin);
+        }
+        else if (data.Action == "byebye")
+        {
+            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
+            const isAdmin = (adminId == clientId);
+            populateClients(clients, isAdmin);
+        }
+        else if (data.Action == "transfer")
+        {
+        if (data.TransferId == clientId) {setEditor(true);}
+            else {setEditor(false);}
+        }
+        else if (data.Action == "chat")
+        {
+            const msg = data.ChatMsg;
+            const username = data.ClientId;
+            const clientColor = getClientColor(username);
+            const messageElement = document.createElement('p');
+            messageElement.innerHTML = `<strong style="color: ${clientColor}">${username}:</strong> ${msg}`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        else if (data.Action == "code")
+        {
+            editor.setValue(data.Code);
+            // editor.setCursor({line: 1, ch: 5})
+        }
+    };
+    socket.onerror = function(error) {
+        console.error("WebSocket error:", error);
+    };
+    socket.onclose = function() {
+        console.log("WebSocket connection closed");
+    };
+}
 
 // Username initial window
 {
@@ -141,18 +241,20 @@ const chatMessages = document.getElementById('messages');
 
 // IsEditor switch
 {
-    const editorSwitch = document.getElementById('editorSwitch');
-    editorSwitch.addEventListener('change', function() {
+    editorSwitch.addEventListener('click', function() {
         const isAdmin = (clientId == adminId)
-        if (editorSwitch.checked) {
+        
+        if (editorSwitch.classList.contains('deactivated'))
+        {
+            toggleEditorStatus(true);
             const radios = document.querySelectorAll('input[name="clientToggle"]');
             radios.forEach(radio => radio.checked = false);
             handleClientToggle(clientId)
-
         }
-        else if (isAdmin && !editorSwitch.checked) {
-            editorSwitch.checked = true;
+        else if (isAdmin && editorSwitch.classList.contains('active'))
+        {
             console.log('Admin cannot uncheck this switch.');
+
         }
     });
 }
@@ -329,52 +431,6 @@ const chatMessages = document.getElementById('messages');
     });
 }
 
-// Editor Upload file
-// {
-//     const fileInput = document.getElementById('fileInput');
-//     const fileInputLabel = document.getElementById('fileInputLabel');
-//     const editor = document.getElementById('editor');
-
-//     // Handle file selection via input
-//     fileInput.addEventListener('change', handleFile);
-
-//     // Handle file drag and drop
-//     fileInputLabel.addEventListener('dragover', (e) => {
-//         e.preventDefault();
-//         fileInputLabel.classList.add('dragging'); // Optional for drag styling
-//     });
-
-//     fileInputLabel.addEventListener('dragleave', () => {
-//         fileInputLabel.classList.remove('dragging'); // Optional for drag styling
-//     });
-
-//     fileInputLabel.addEventListener('drop', (e) => {
-//         e.preventDefault();
-//         fileInputLabel.classList.remove('dragging'); // Optional for drag styling
-//         const file = e.dataTransfer.files[0]; // Get the first file from the drop
-//         if (file) {
-//             readFile(file);
-//         }
-//     });
-
-//     // Function to handle file reading
-//     function handleFile(event) {
-//         const file = event.target.files[0]; // Get the selected file
-//         if (file) {
-//             readFile(file);
-//         }
-//     }
-
-//     // Function to read the file and display content in the editor
-//     function readFile(file) {
-//         const reader = new FileReader();
-//         reader.onload = function(e) {
-//             editor.value = e.target.result; // Set the file content in the textarea
-//         };
-//         reader.readAsText(file);
-//     }
-// }
-
 // Custom context menu
 {
     const customMenu = document.getElementById('customMenu');
@@ -462,7 +518,23 @@ const chatMessages = document.getElementById('messages');
     })
 }
 
-});
+// Output tabs
+{
+    function openTab(evt, tabName) {
+        const tabcontent = document.getElementsByClassName("tabcontent");
+        for (let i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        const tablinks = document.getElementsByClassName("tablinks");
+        for (let i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+    window.openTab = openTab;
+}
+
 function sendPassword(password_input) {
     let pass = password_input || document.getElementById('adminPassword').value;
     password = pass;
@@ -507,16 +579,13 @@ function setAdmin(Admin){
     }
 }
 function setEditor(Editor){
-    let editorSwitch = document.getElementById('editorSwitch');
-
     if (Editor) {
-        editorSwitch.checked = true;
+        toggleEditorStatus(true);
         editor.setOption("readOnly", false);
     } else {
-        editorSwitch.checked = false;
+        toggleEditorStatus(false);
         editor.setOption("readOnly", true);
     }
-
 }
 function populateClients(clients,isAdmin) {
     console.log("Populating clients...")
@@ -543,9 +612,7 @@ function populateClients(clients,isAdmin) {
             radioButton.addEventListener('change', (event) => {
                 console.log(event)
                 if (event.target.checked) {
-                    const editorSwitch = document.getElementById('editorSwitch');
-                    editorSwitch.checked = false;
-                    console.log("editorSwitch.checked", editorSwitch.checked)
+                    toggleEditorStatus(false);
                     handleClientToggle(event.target.value); 
                 }
             });
@@ -565,106 +632,6 @@ function handleClientToggle(selectedClient) {
         TransferId : selectedClient
     }));
     console.log(`Client ${selectedClient} has been selected.`);
-}
-function initSocket(username) {
-    socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
-    console.log(socket);
-    socket.onopen = function() {
-        console.log("Connected to WebSocket server");
-    };
-    socket.onmessage = function(event) 
-    {
-        let data = JSON.parse(event.data);
-        
-        console.log("Got message: ", data)
-        
-        if (data.Action == "authenticated")
-        {   
-            console.log("Authenticated", data.ClientId)
-            if (data.ClientId == clientId) 
-            {
-                    showAdminNotification("You are now the admin and editor!", true,true); 
-                    const editorSwitch = document.getElementById('editorSwitch');
-                    editorSwitch.disabled = false;
-            }
-            adminId = data.ClientId
-            const isAdmin = (adminId == clientId)
-            populateClients(clients, isAdmin);
-        }
-        else if (data.Action == "failed")
-        {
-            socket.close();
-            alert("This user name is in use or invalid");
-        }
-        else if (data.Action == "deauthenticated")
-        {
-            if (data.ClientId == clientId) 
-            {
-                showAdminNotification("You are not admin anymore", false,false); 
-                const isAdmin = (adminId == clientId);
-                populateClients(clients, isAdmin);
-                const editorSwitch = document.getElementById('editorSwitch');
-                editorSwitch.disabled = true;
-            };
-        }
-        else if (data.Action == "hello") 
-        {
-            if (!clientId)
-            {
-                const modal = document.getElementById("usernameModal");
-                modal.style.display = "none";
-                clientId = data.ClientId;
-                document.getElementById("username").textContent = clientId;
-                console.log("Your id is", clientId);
-                if (data.Password) 
-                {
-                    console.log("Your password is:", data.Password);
-                    localStorage.setItem('adminPassword', data.Password);
-                    document.getElementById('adminPassword').value = data.Password;
-                    sendPassword(savedPassword);
-                }
-            }
-        } 
-        else if (data.Action == "sayhello")
-        {
-            adminId = data.AdminId;
-            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            const isAdmin = (adminId == clientId);
-            populateClients(clients, isAdmin);
-        }
-        else if (data.Action == "byebye")
-        {
-            clients = (data.Clients === 0 || data.Clients === undefined) ? " " : data.Clients;
-            const isAdmin = (adminId == clientId);
-            populateClients(clients, isAdmin);
-        }
-        else if (data.Action == "transfer")
-        {
-        if (data.TransferId == clientId) {setEditor(true);}
-            else {setEditor(false);}
-        }
-        else if (data.Action == "chat")
-        {
-            const msg = data.ChatMsg;
-            const username = data.ClientId;
-            const clientColor = getClientColor(username);
-            const messageElement = document.createElement('p');
-            messageElement.innerHTML = `<strong style="color: ${clientColor}">${username}:</strong> ${msg}`;
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        else if (data.Action == "code")
-        {
-            editor.setValue(data.Code);
-            // editor.setCursor({line: 1, ch: 5})
-        }
-    };
-    socket.onerror = function(error) {
-        console.error("WebSocket error:", error);
-    };
-    socket.onclose = function() {
-        console.log("WebSocket connection closed");
-    };
 }
 function getRandomColor() {
     const letters = '0123456789ABCDEF';
@@ -687,3 +654,22 @@ function addMessageAiChatWindow(message, container, user, color) {
     container.scrollTop = container.scrollHeight;
     return messageElement
 }
+function toggleEditorStatus(checked)
+{   
+    console.log("Before",editorSwitch.classList);
+    if (checked)
+    {
+        console.assert(editorSwitch.classList.contains("deactivated"))
+        editorSwitch.classList.remove('deactivated'); 
+        editorSwitch.classList.add('active');
+    }
+    else 
+    {
+        console.assert(editorSwitch.classList.contains("active"))
+        editorSwitch.classList.remove('active'); 
+        editorSwitch.classList.add('deactivated');
+    }
+    console.log("After:", editorSwitch.classList);
+
+}
+});
