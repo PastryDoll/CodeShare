@@ -279,7 +279,7 @@ const chatMessages = document.getElementById('messages');
 // Download Editor 
 {
 
-    const modeMapping = {
+    const mode2ext = {
         'python': 'py'
     };
 
@@ -289,8 +289,43 @@ const chatMessages = document.getElementById('messages');
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         console.log(editor)
-        link.download = `code.${modeMapping[editor.options.mode]}`;
+        link.download = `code.${mode2ext[editor.options.mode]}`;
         link.click();
+    });
+}
+
+// Upload to Editor
+{
+    const ext2mode = {
+        'py': 'python',
+        'js': 'javascript',
+        'go': 'golang'
+
+    }
+
+    document.getElementById('importButton').addEventListener('click', () => 
+    {
+        document.getElementById('fileInput').click();
+    });
+    document.getElementById('fileInput').addEventListener('change', (event) => 
+    {
+        const file = event.target.files[0];
+        if (file) 
+        {
+            const reader = new FileReader();
+            reader.onload = function(e) 
+            {
+                const fileContent = e.target.result;
+                const filename = file.name;
+                const extension = filename.split('.').pop().toLowerCase();
+                const mode = ext2mode[extension] || 'plaintext';
+                console.log("Uploading file:", filename, "of type:", mode);
+                editor.setOption('mode', mode);
+                editor.setValue(fileContent);
+                console.log("editor:", editor);
+            };
+            reader.readAsText(file);
+        }
     });
 }
 
