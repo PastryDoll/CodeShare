@@ -42,7 +42,6 @@
     background-color: white;
 }
 
-/* Editor Menu */
 #editorMenu {
     display: flex;
     justify-content: space-between;

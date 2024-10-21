@@ -1,85 +1,85 @@
-/* Position the chat tab in the bottom-left corner */
+
 #ai-tab {
     position: fixed;
     bottom: 0;
     right: 0;
-    width: 300px; /* Constrain chat width */
+    width: 300px; 
     max-height: 400px;
     background-color: #f1f1f1;
     border: 1px solid #ccc;
-    border-top-left-radius: 10px; /* Consistent rounded corners */
-    border-top-right-radius: 10px; /* Consistent rounded corners */
+    border-top-left-radius: 10px; 
+    border-top-right-radius: 10px; 
     box-shadow: 0px -1px 10px rgba(0, 0, 0, 0.1);
-    overflow: hidden; /* Prevent scrollbar during animation */
-    transition: height 0.3s ease, max-height 0.3s ease, border-radius 0.3s ease; /* Transition for border-radius too */
+    overflow: hidden; 
+    transition: height 0.3s ease, max-height 0.3s ease, border-radius 0.3s ease; 
     z-index: 1000;
 
 }
 
-/* Initially, collapse the chat (only header is shown) */
+
 #ai-tab.collapsed {
     height: 35px;
-    border-top-left-radius: 10px; /* Keep corners rounded */
-    border-top-right-radius: 10px; /* Keep corners rounded */
+    border-top-left-radius: 10px; 
+    border-top-right-radius: 10px; 
 }
 
-/* When expanded, set the height to max available height */
+
 #ai-tab.expanded {
     height: 400px;
-    border-top-left-radius: 10px; /* Keep corners rounded */
-    border-top-right-radius: 10px; /* Keep corners rounded */
+    border-top-left-radius: 10px; 
+    border-top-right-radius: 10px; 
 }
 
-/* Chat header for the clickable tab */
+
 #ai-header {
     background-color: #007bff;
     color: white;
     padding: 10px;
     cursor: pointer;
     text-align: center;
-    border-top-left-radius: 10px; /* Header inherits rounded corners */
-    border-top-right-radius: 10px; /* Header inherits rounded corners */
+    border-top-left-radius: 10px; 
+    border-top-right-radius: 10px; 
 }
 
-/* Chat box content */
+
 #ai {
     display: none;
     padding: 10px;
     background-color: white;
-    height: calc(100% - 40px); /* Adjust height for chat */
+    height: calc(100% - 40px); 
     opacity: 0;
     transition: opacity 0.3s ease;
 }
 
-/* Show chat content when expanded */
+
 #ai-tab.expanded #ai {
     display: block;
-    opacity: 1; /* Fade in the chat content */
+    opacity: 1; 
 }
 
-/* Styles for the message container */
+
 #messages-ai {
     height: 200px;
     border: 1px solid #ccc;
     margin-bottom: 10px;
-    overflow-y: auto; /* Allow vertical scrolling */
-    overflow-x: hidden; /* Prevent horizontal scrolling */
-    word-wrap: break-word; /* Break long words */
-    white-space: pre-wrap; /* Preserve whitespace and wrap lines */
+    overflow-y: auto; 
+    overflow-x: hidden; 
+    word-wrap: break-word; 
+    white-space: pre-wrap; 
 }
 
-/* Styles for textarea and button inside #chat-tab */
+
 #ai-tab textarea, 
 #ai-tab button {
-    width: 100%; /* Ensure input/button fit within the chat width */
+    width: 100%; 
     padding: 10px;
     margin-top: 5px;
-    box-sizing: border-box; /* Ensure padding is included in the element width */
-    resize: none; /* Prevent resizing to maintain layout */
+    box-sizing: border-box; 
+    resize: none; 
 }
 
-/* Specific styles for textarea to enable vertical scrolling */
+
 #ai-tab textarea {
-    max-height: 100px; /* Limit height of textarea */
-    overflow-y: auto; /* Enable vertical scroll if content exceeds height */
+    max-height: 100px; 
+    overflow-y: auto; 
 }
