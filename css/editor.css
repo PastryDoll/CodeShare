@@ -54,6 +54,9 @@
 .left-buttons {
     display: flex;
 }
+.right-buttons {
+    display: flex;
+}
 
 #editorMenu button {
     margin-right: 10px;
