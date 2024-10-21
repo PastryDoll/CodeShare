@@ -276,6 +276,24 @@ const chatMessages = document.getElementById('messages');
     });
 }
 
+// Download Editor 
+{
+
+    const modeMapping = {
+        'python': 'py'
+    };
+
+    document.getElementById('exportButton').addEventListener('click', () => {
+        const code = editor.getValue(); 
+        const blob = new Blob([code], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        console.log(editor)
+        link.download = `code.${modeMapping[editor.options.mode]}`;
+        link.click();
+    });
+}
+
 // Editor Upload file
 // {
 //     const fileInput = document.getElementById('fileInput');
