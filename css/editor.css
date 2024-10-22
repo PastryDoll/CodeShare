@@ -1,10 +1,10 @@
 #editorContainer {
     position: relative;
-    display: flex;
-    flex-direction: column;
+    display: grid;
     padding: 0px;
     box-sizing: border-box;
     overflow: hidden;
+    grid-template-rows: auto 1fr auto;
 }
 #editor {
     flex: 1;
@@ -15,12 +15,10 @@
 }
 
 #output {
-    height: 20%;
-    border: 0px solid #ddd;
-    padding: 0px;
-    font-size: 14px;
     background-color: #f4f4f4;
     overflow-y: auto;
+    padding: 0px;
+    margin: 0px;
 }
 
 #editor.fullscreen {

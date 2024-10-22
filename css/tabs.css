@@ -1,7 +1,14 @@
+#tabsandcontent {
+    height: 150px;
+    display: flex;
+    position: relative;
+    flex-direction: column;
+}
 .tab {
     overflow: hidden;
     background-color: #f1f1f1;
-    margin-top: 10px;
+    margin-top: 0px;
+    position: relative;
 }
 
 .tab button {
@@ -20,11 +27,14 @@
 }
 
 .tabcontent {
+    flex-grow: 1; 
     display: none;
-    padding: 20px;
+    padding: 0px;
     border: 1px solid #ccc;
+    height: 100%;
+    background-color: #f4f4f4;
+    overflow-y: auto;
 }
-
 .tabcontent h3 {
     margin-top: 0;
 }

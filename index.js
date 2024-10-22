@@ -15,11 +15,11 @@ let clientColors = {}; // Modified in getClientColor
 
 document.addEventListener("DOMContentLoaded", function() 
 {
-document.querySelector(".tablinks").click();
 // Init hot DOM elements
 const AIchatMessages = document.getElementById('messages-ai');
 const chatMessages = document.getElementById('messages');
 const editorSwitch = document.getElementById('editorButton');
+const outputElement = document.getElementById("output");
 
 function initSocket(username) {
     socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
@@ -466,7 +466,6 @@ function initSocket(username) {
 // Run Button
 {
 
-    let outputElement = document.getElementById("output");
     document.getElementById("runButton").addEventListener("click", function() {
         runButton.disabled = true;
         var code = editor.getValue();
@@ -509,7 +508,7 @@ function initSocket(username) {
         })
         .then(() => runButton.disabled = false, console.log(outputElement.textContent))
         .catch(error => {
-            document.getElementById("output").textContent = "Error: " + error.message;
+            outputElement.textContent = "Error: " + error.message;
         });
     });
 
@@ -520,6 +519,32 @@ function initSocket(username) {
 
 // Output tabs
 {
+    const resizer = document.getElementById('resizer-up');
+    const tabsandcontentElement = document.getElementById('tabsandcontent');
+    let initialMouseY;
+    
+    resizer.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        
+        initialMouseY = e.clientY;
+        window.addEventListener('mousemove', resizeHeight);
+        window.addEventListener('mouseup', stopResize);
+    });
+    
+    function resizeHeight(e) {
+        const mouseDeltaY = e.clientY - initialMouseY;
+        const newHeight = tabsandcontentElement.getBoundingClientRect().height - mouseDeltaY;
+        console.log(tabsandcontentElement.getBoundingClientRect().height)
+        if (newHeight > 140) {
+            tabsandcontentElement.style.height = newHeight + 'px';
+        }
+        initialMouseY = e.clientY;
+    }
+    
+    function stopResize() {
+        window.removeEventListener('mousemove', resizeHeight);
+    }
+
     function openTab(evt, tabName) {
         const tabcontent = document.getElementsByClassName("tabcontent");
         for (let i = 0; i < tabcontent.length; i++) {
@@ -533,6 +558,7 @@ function initSocket(username) {
         evt.currentTarget.className += " active";
     }
     window.openTab = openTab;
+    document.querySelector(".tablinks").click();
 }
 
 function sendPassword(password_input) {
