@@ -31,7 +31,7 @@
         }
         #mainContent {
             display: grid;
-            grid-template-columns: auto  1fr auto;
+            grid-template-columns: 1fr auto;
             flex: 1;
             overflow: hidden;
         }
@@ -44,27 +44,6 @@
             max-width: 500px;
             position: relative;
         }
-        #resizer-left{
-            width: 10px;
-            height: 100%;
-            border-radius: 0%;
-            background: rgb(3, 3, 3);
-            border: 0px solid #4286f4;
-            position: absolute;
-            left: calc(100% - 10px);
-            top: 0px;
-            cursor: ew-resize; 
-        }
-        #resizer-up{
-            width: 100%;
-            height: 10px;
-            border-radius: 0%;
-            background: rgb(3, 3, 3);
-            border: 0px solid #4286f4;
-            position: absolute;
-            top: 0px;
-            cursor: ns-resize; 
-        }
         #clientsPanel {
             padding: 20px;
             width: 200px;
@@ -76,17 +55,6 @@
             flex-direction: column;
             position: relative;
             overflow: hidden;
-        }
-        #resizer-right{
-            width: 10px;
-            height: 100%;
-            border-radius: 0%;
-            background: rgb(3, 3, 3);
-            border: 0px solid #4286f4;
-            position: absolute;
-            left: 0;
-            top: 0px;
-            cursor: ew-resize;
         }
         footer {
             padding: 10px;
@@ -125,6 +93,8 @@
     <link rel="stylesheet" href="css/editor.css">
     <link rel="stylesheet" href="css/tabs.css">
     <link rel="stylesheet" href="css/output.css">
+    <link rel="stylesheet" href="css/resizers.css">
+    <link rel="stylesheet" href="css/clients_list.css">
 </head>
 <body>
     <div id="usernameModal" class="modal">
@@ -151,17 +121,6 @@
     </header>
 
     <div id="mainContent">
-        <div id="adminPanel">
-            <div id='resizer-left'></div>
-            <h2>Admin</h2>
-            <div id="adminMessage">
-                <button id="closeAdminMessage">X</button>
-                <p id="adminMessageText"></p>
-            </div>
-            <div id="adminWebcam">
-                <video id="video" autoplay></video>
-            </div>
-        </div>
         <div id="editorContainer">
             <div id="editorMenu">
                 <div class="left-buttons">
@@ -186,6 +145,12 @@
                     </button>
                 </div>
                 <div class="right-buttons">
+                    <button id="clientDropdownButton" title="Clients Online">
+                        Clients Online
+                    </button>
+                    <div id="clientDropdown" class="dropdown-content" style="display: none;">
+                        <ul id="clientList"></ul>
+                    </div>
                     <button id="runButton" title="Compile & Run">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play" viewBox="2 2 12 12">
                             <path d="M10.804 8 5 4.633v6.734zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696z"/>
@@ -241,6 +206,13 @@
             <div id='resizer-right'></div>
             <h2>Connected Clients</h2>
             <ul id="clientsList"></ul>
+            <div id="adminMessage">
+                <button id="closeAdminMessage">X</button>
+                <p id="adminMessageText"></p>
+            </div>
+            <div id="adminWebcam">
+                <video id="video" autoplay></video>
+            </div>
         </div>
     </div>
 

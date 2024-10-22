@@ -223,31 +223,6 @@ function initSocket(username) {
     });
 }
 
-// Admin Panel
-{
-    const adminPanelDiv = document.getElementById('adminPanel');
-    const adminPanelResizer = document.getElementById('resizer-left')
-
-    adminPanelResizer.addEventListener('mousedown', function(e) {
-        e.preventDefault()
-        window.addEventListener('mousemove', resizeLeft)
-        window.addEventListener('mouseup', stopResizeLeft)
-    })
-
-    function resizeLeft(e) {
-        const adminPanelComputedStyle = window.getComputedStyle(adminPanelDiv);
-        const adminPanelResizerComputedStyle = window.getComputedStyle(adminPanelResizer);
-        const padding = parseInt(adminPanelComputedStyle.paddingLeft); 
-        const resizerWidth = parseInt(adminPanelResizerComputedStyle.width);
-
-        adminPanelDiv.style.width = e.pageX - padding - resizerWidth + 'px';
-    }
-        
-    function stopResizeLeft() {
-        window.removeEventListener('mousemove', resizeLeft)
-    }
-}
-
 // Client Panel
 {
     const clientPanelDiv = document.getElementById('clientsPanel');
@@ -276,6 +251,40 @@ function initSocket(username) {
         document.documentElement.removeEventListener('mousemove', resizePanel);
         document.documentElement.removeEventListener('mouseup', stopResize);
     }
+}
+
+// Clients List
+{
+    const clientsOnline = ['Client 1', 'Client 2', 'Client 3'];
+
+    // Function to populate the client list
+    function populateClientList() {
+        const clientList = document.getElementById('clientList');
+        clientList.innerHTML = ''; // Clear existing items
+        clientsOnline.forEach(client => {
+            const li = document.createElement('li');
+            li.textContent = client;
+            clientList.appendChild(li);
+        });
+    }
+    
+    // Toggle dropdown visibility
+    document.getElementById('clientDropdownButton').addEventListener('click', function() {
+        const dropdown = document.getElementById('clientDropdown');
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+            populateClientList(); // Populate list only when dropdown is opened
+        }
+    });
+    
+    // Close dropdown if clicked outside
+    window.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('clientDropdown');
+        if (!event.target.matches('#clientDropdownButton')) {
+            dropdown.style.display = 'none';
+        }
+    });
 }
 
 // Editor (Editor is Global)
