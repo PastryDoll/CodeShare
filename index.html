@@ -124,6 +124,7 @@
     <link rel="stylesheet" href="css/contextmenu.css">
     <link rel="stylesheet" href="css/editor.css">
     <link rel="stylesheet" href="css/tabs.css">
+    <link rel="stylesheet" href="css/output.css">
 </head>
 <body>
     <div id="usernameModal" class="modal">
@@ -209,17 +210,29 @@
                     <button class="tablinks" onclick="openTab(event, 'Output')">Output</button>
                 </div>
                     <div id="Chat" class="tabcontent">
-                        <h3>Chat</h3>
-                        <p>Chat content goes here...</p>
+                        <div id="chat">
+                            <div id="messages"></div>
+                            <div id="input-area">
+                                <textarea id="message" placeholder="Enter message"></textarea>
+                                <button id="send">Send</button>
+                            </div>
+                        </div>
                     </div>
                     
                     <div id="AI" class="tabcontent" style="display:none;">
-                        <h3>AI Assistant</h3>
-                        <p>AI Assistant content goes here...</p>
+                        <div id="chat-ai">
+                            <div id="messages-ai"></div>
+                            <div id="input-area-ai">
+                                <textarea id="message-ai" placeholder="Enter aimessage"></textarea>
+                                <button id="send-ai">Send</button>
+                            </div>
+                        </div>
                     </div>
                     
                     <div id="Output" class="tabcontent" style="display:none;">
-                        <pre id="output"></pre>
+                        <div id="output-ext">
+                            <pre id="output"></pre>
+                        </div>
                     </div>
             </div>
         </div>
@@ -230,26 +243,6 @@
             <ul id="clientsList"></ul>
         </div>
     </div>
-
-    <footer>
-        <span>Footer Area (Optional)</span>
-        <div id="chat-tab" class="collapsed">
-            <div id="chat-header">Chat Room</div>
-            <div id="chat">
-                <div id="messages"></div>
-                <textarea id="message" placeholder="Enter message"></textarea>
-                <button id="send">Send</button>
-            </div>
-        </div>
-        <div id="ai-tab" class="collapsed">
-            <div id="ai-header">Ai Assistant</div>
-            <div id="ai">
-                <div id="messages-ai"></div>
-                <textarea id="message-ai" placeholder="Enter aimessage"></textarea>
-                <button id="send-ai">Send</button>
-            </div>
-        </div>
-    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>

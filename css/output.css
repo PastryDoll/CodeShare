@@ -1,4 +1,4 @@
-#chat {
+#output-ext {
     padding: 10px;
     background-color: rgb(69 71 80);
     height: 100%;
@@ -7,7 +7,7 @@
     padding-top: 0px;
 }
 
-#messages {
+#output {
     flex: 1;
     border: 1px solid #000000;
     margin-bottom: 10px;
@@ -16,21 +16,4 @@
     word-wrap: break-word;
     white-space: pre-wrap;
     background-color: #c9c9c9;
-}
-
-#input-area {
-    display: flex;
-    align-items: stretch;
-    padding-bottom: 15px;
-}
-
-#input-area textarea {
-    flex: 1; 
-    padding: 0px;
-    resize: none;
-}
-
-#input-area button {
-    padding: 0px;
-    box-sizing: border-box; 
 }

@@ -182,24 +182,6 @@ function initSocket(username) {
             messageInput.value = '';  // Clear the input field
         }
     };
-
-    document.getElementById('chat-header').addEventListener('click', function() {
-        const chatTab = document.getElementById('chat-tab');
-        const isCollapsed = chatTab.classList.contains('collapsed');
-
-        chatTab.classList.remove('collapsed', 'expanded');
-
-        if (isCollapsed) {
-            chatTab.style.overflow = 'hidden';
-            chatTab.classList.add('expanded');
-            setTimeout(function() {
-                chatTab.style.overflow = 'visible'; 
-            }, 300); 
-        } else {
-            chatTab.classList.add('collapsed');
-            chatTab.style.overflow = 'hidden';
-        }
-    });
 }
 
 // AI Chat
@@ -219,24 +201,6 @@ function initSocket(username) {
 
         }
     };
-
-    document.getElementById('ai-header').addEventListener('click', function() {
-        const chatTab = document.getElementById('ai-tab');
-        const isCollapsed = chatTab.classList.contains('collapsed');
-
-        chatTab.classList.remove('collapsed', 'expanded');
-
-        if (isCollapsed) {
-            chatTab.style.overflow = 'hidden';
-            chatTab.classList.add('expanded');
-            setTimeout(function() {
-                chatTab.style.overflow = 'visible'; 
-            }, 300); 
-        } else {
-            chatTab.classList.add('collapsed');
-            chatTab.style.overflow = 'hidden';
-        }
-    });
 }
 
 // IsEditor switch
@@ -382,7 +346,9 @@ function initSocket(username) {
 {
 
     const mode2ext = {
-        'python': 'py'
+        'python': 'py',
+        'golang': 'go',
+        'javascript': 'js'
     };
 
     document.getElementById('exportButton').addEventListener('click', () => {
@@ -402,7 +368,6 @@ function initSocket(username) {
         'py': 'python',
         'js': 'javascript',
         'go': 'golang'
-
     }
 
     document.getElementById('importButton').addEventListener('click', () => 
