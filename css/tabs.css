@@ -5,6 +5,8 @@
     flex-direction: column;
 }
 .tab {
+    display: flex;
+    justify-content: space-between;
     overflow: hidden;
     background-color: #454751;
     margin-top: 0px;
@@ -36,6 +38,17 @@
     border: 0px solid #ccc;
     height: calc(100% - 40px);
     background-color: #f4f4f4;
+}
+.tab-text-content{
+    flex: 1;
+    border: 1px solid #000000;
+    margin-bottom: 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    background-color: #1e1e1e;
+    color: #FFFFFF;
 }
 .tabcontent h3 {
     margin-top: 0;

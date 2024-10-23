@@ -533,6 +533,29 @@ function initSocket(username) {
     }
     window.openTab = openTab;
     document.querySelector(".tablinks").click();
+
+    function downloadTabContent() {
+        const activeTab = document.querySelector(".tabcontent[style*='block']");
+        let content = "";
+    
+        if (activeTab) {
+            const logContent = activeTab.querySelector(".tab-text-content");
+            if (logContent) {
+                content = logContent.innerText;  
+            }
+            const blob = new Blob([content], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+    
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "tab-content.txt";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    }
+    document.getElementById("download-tab-content").addEventListener("click", downloadTabContent);
 }
 
 function sendPassword(password_input) {
