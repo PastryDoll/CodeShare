@@ -255,34 +255,16 @@ function initSocket(username) {
 
 // Clients List
 {
-    const clientsOnline = ['Client 1', 'Client 2', 'Client 3'];
-
-    // Function to populate the client list
-    function populateClientList() {
-        const clientList = document.getElementById('clientList');
-        clientList.innerHTML = ''; // Clear existing items
-        clientsOnline.forEach(client => {
-            const li = document.createElement('li');
-            li.textContent = client;
-            clientList.appendChild(li);
-        });
-    }
+    document.getElementById("clientDropdownButton").addEventListener("click", function () {
+        const dropdown = document.getElementById("clientDropdown");
+        dropdown.classList.toggle("show");
     
-    // Toggle dropdown visibility
-    document.getElementById('clientDropdownButton').addEventListener('click', function() {
-        const dropdown = document.getElementById('clientDropdown');
-        const isVisible = dropdown.style.display === 'block';
-        dropdown.style.display = isVisible ? 'none' : 'block';
-        if (!isVisible) {
-            populateClientList(); // Populate list only when dropdown is opened
-        }
-    });
-    
-    // Close dropdown if clicked outside
-    window.addEventListener('click', function(event) {
-        const dropdown = document.getElementById('clientDropdown');
-        if (!event.target.matches('#clientDropdownButton')) {
-            dropdown.style.display = 'none';
+        if (dropdown.classList.contains("show")) {
+            dropdown.style.display = "block"; // Ensure it's visible
+        } else {
+            setTimeout(() => {
+                dropdown.style.display = "none"; // Delay hiding to allow animation
+            }, 300); // This should match the transition duration (0.3s)
         }
     });
 }
@@ -548,7 +530,7 @@ function initSocket(username) {
     
             const a = document.createElement('a');
             a.href = url;
-            a.download = "tab-content.txt";
+            a.download = `${activeTab.id}.txt`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
