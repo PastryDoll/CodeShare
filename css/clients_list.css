@@ -17,7 +17,7 @@
 
 .dropdown-content.show {
     display: block;
-    transform: translateY(0); /* Slide down when shown */
+    transform: translateY(0); 
     opacity: 1;
 }
 
@@ -33,46 +33,20 @@ li {
     padding: 5px 0;
 }
 
-/* Toggle switch CSS */
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 20px;
-}
-
-.switch input {
-    display: none;
-}
-
-.slider {
-    position: absolute;
+.editorButtonList {
+    border: none;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: 0.4s;
-    border-radius: 34px;
+    padding: 5px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
 }
 
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    left: 4px;
-    bottom: 3px;
-    background-color: white;
-    transition: 0.4s;
+.editorButtonList.active {
+    background-color: green !important;
+    color: white;
 }
 
-input:checked + .slider {
-    background-color: #4CAF50;
-}
-
-input:checked + .slider:before {
-    transform: translateX(15px);
+.editorButtonList.inactive {
+    background-color: red !important;
+    color: white;
 }

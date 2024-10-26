@@ -12,6 +12,7 @@ let clients = null; // Modified in byebye and sayhello
 let userName = null; // Modified in Username initial window
 let editor = null; // Modified in editor
 let clientColors = {}; // Modified in getClientColor
+let activeButton = null;
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -204,24 +205,24 @@ function initSocket(username) {
 }
 
 // IsEditor switch
-{
-    editorSwitch.addEventListener('click', function() {
-        const isAdmin = (clientId == adminId)
-        
-        if (editorSwitch.classList.contains('deactivated'))
-        {
-            toggleEditorStatus(true);
-            const radios = document.querySelectorAll('input[name="clientToggle"]');
-            radios.forEach(radio => radio.checked = false);
-            handleClientToggle(clientId)
-        }
-        else if (isAdmin && editorSwitch.classList.contains('active'))
-        {
-            console.log('Admin cannot uncheck this switch.');
+editorSwitch.addEventListener('click', function() {
+    const isAdmin = (clientId == adminId);
+    
+    if (editorSwitch.classList.contains('deactivated')) {
+        toggleEditorStatus(true); 
 
-        }
-    });
-}
+        const clientButtons = document.querySelectorAll('.editorButtonList');
+        clientButtons.forEach(button => {
+            button.classList.remove('active');
+            button.classList.add('inactive');
+        });
+
+        handleClientToggle(clientId);
+    } 
+    else if (isAdmin && editorSwitch.classList.contains('active')) {
+        console.log('Admin cannot uncheck this switch.');
+    }
+});
 
 // Client Panel
 {
@@ -251,10 +252,7 @@ function initSocket(username) {
         document.documentElement.removeEventListener('mousemove', resizePanel);
         document.documentElement.removeEventListener('mouseup', stopResize);
     }
-}
 
-// Clients List
-{
     document.getElementById("clientDropdownButton").addEventListener("click", function () {
         const dropdown = document.getElementById("clientDropdown");
         dropdown.classList.toggle("show");
@@ -592,40 +590,52 @@ function setEditor(Editor){
         editor.setOption("readOnly", true);
     }
 }
-function populateClients(clients,isAdmin) {
-    console.log("Populating clients...")
-    console.log("Admin is:",adminId)
+function populateClients(clients, isAdmin) {
+    console.log("Populating clients...");
+    console.log("Admin is:", adminId);
     const clientsList = document.getElementById('clientsList');
     clientsList.innerHTML = ''; 
-    const clientsList_ids = clients.split(",")
+    const clientsList_ids = clients.split(",");
+    
     clientsList_ids.forEach((client, index) => {
         if (client === adminId) {
             return;
         }
+        
         const li = document.createElement('li');
         const label = document.createElement('label');
         label.innerText = client;
         
-        if (isAdmin)
-        {
-            const radioButton = document.createElement('input');
-            radioButton.type = 'radio';
-            radioButton.name = 'clientToggle'; 
-            radioButton.value = client;
-            radioButton.id = `client-${index}`;
-    
-            radioButton.addEventListener('change', (event) => {
-                console.log(event)
-                if (event.target.checked) {
-                    toggleEditorStatus(false);
-                    handleClientToggle(event.target.value); 
+        if (isAdmin) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.id = `client-${index}`;
+            button.classList.add('editorButtonList', 'inactive'); 
+
+            button.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-vector-pen" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M10.646.646a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-1.902 1.902-.829 3.313a1.5 1.5 0 0 1-1.024 1.073L1.254 14.746 4.358 4.4A1.5 1.5 0 0 1 5.43 3.377l3.313-.828zm-1.8 2.908-3.173.793a.5.5 0 0 0-.358.342l-2.57 8.565 8.567-2.57a.5.5 0 0 0 .34-.357l.794-3.174-3.6-3.6z"/>
+                    <path fill-rule="evenodd" d="M2.832 13.228 8 9a1 1 0 1 0-1-1l-4.228 5.168-.026.086z"/>
+                </svg>
+            `;
+
+            button.addEventListener('click', () => {
+                if (activeButton && activeButton !== button) {
+                    activeButton.classList.remove('active');
+                    activeButton.classList.add('inactive');
                 }
+                button.classList.add('active');
+                button.classList.remove('inactive');
+                activeButton = button;
+
+                toggleEditorStatus(false); 
+                handleClientToggle(client);
             });
-            li.appendChild(radioButton);
+
+            li.appendChild(button);
         }
 
         li.appendChild(label);
-
         clientsList.appendChild(li);
     });
 }
