@@ -205,24 +205,26 @@ function initSocket(username) {
 }
 
 // IsEditor switch
-editorSwitch.addEventListener('click', function() {
-    const isAdmin = (clientId == adminId);
+{
+    editorSwitch.addEventListener('click', function() {
+        const isAdmin = (clientId == adminId);
+        
+        if (editorSwitch.classList.contains('deactivated')) {
+            toggleEditorStatus(true); 
     
-    if (editorSwitch.classList.contains('deactivated')) {
-        toggleEditorStatus(true); 
-
-        const clientButtons = document.querySelectorAll('.editorButtonList');
-        clientButtons.forEach(button => {
-            button.classList.remove('active');
-            button.classList.add('inactive');
-        });
-
-        handleClientToggle(clientId);
-    } 
-    else if (isAdmin && editorSwitch.classList.contains('active')) {
-        console.log('Admin cannot uncheck this switch.');
-    }
-});
+            const clientButtons = document.querySelectorAll('.editorButtonList');
+            clientButtons.forEach(button => {
+                button.classList.remove('active');
+                button.classList.add('inactive');
+            });
+    
+            handleClientToggle(clientId);
+        } 
+        else if (isAdmin && editorSwitch.classList.contains('active')) {
+            console.log('Admin cannot uncheck this switch.');
+        }
+    });
+}
 
 // Client Panel
 {
@@ -512,7 +514,6 @@ editorSwitch.addEventListener('click', function() {
         evt.currentTarget.className += " active";
     }
     window.openTab = openTab;
-    document.querySelector(".tablinks").click();
 
     function downloadTabContent() {
         const activeTab = document.querySelector(".tabcontent[style*='block']");
@@ -536,6 +537,7 @@ editorSwitch.addEventListener('click', function() {
         }
     }
     document.getElementById("download-tab-content").addEventListener("click", downloadTabContent);
+    document.querySelectorAll(".tablinks")[2].click(); // Initialize as output tab
 }
 
 function sendPassword(password_input) {
