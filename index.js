@@ -214,8 +214,8 @@ function initSocket(username) {
         theme: "dracula", 
         tabSize: 4
     });
+    editor.getWrapperElement().style.fontSize = `18px`;
     editor.setOption("readOnly", true);
-
     editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
     editor.setSize("100%","100%");
     editor.on("change", function(instance, changeObj) {
@@ -229,6 +229,37 @@ function initSocket(username) {
 
 
 }
+
+// Editor font size
+{
+    const fontSizes = Array.from({ length: (32 - 8) / 2 + 1 }, (_, i) => 8 + i * 2);
+    const fontList = document.getElementById('fontList');
+    const dropdown = document.getElementById("fontDropdown");
+    
+    fontSizes.forEach(size => {
+        const listItem = document.createElement('li');
+        listItem.textContent = size;
+        listItem.onclick = () => {
+            editor.getWrapperElement().style.fontSize = `${size}px`;
+            dropdown.classList.toggle("show");
+            dropdown.style.display = 'none'; 
+        };
+        fontList.appendChild(listItem);
+    });
+
+    document.getElementById("fontSize").addEventListener("click", function () {
+        dropdown.classList.toggle("show");
+    
+        if (dropdown.classList.contains("show")) {
+            dropdown.style.display = "block"; 
+        } else {
+            setTimeout(() => {
+                dropdown.style.display = "none"; 
+            }, 300); 
+        }
+    });
+}
+
 // Editor Upload Content
 {
     const ext2mode = {
@@ -289,7 +320,7 @@ function initSocket(username) {
         const isAdmin = (clientId == adminId);
         
         if (editorSwitch.classList.contains('deactivated')) {
-            toggleButton(editorSwitch, true); 
+            toggleButton(editorSwitch, true, 'active', 'deactivated'); 
     
             const clientButtons = document.querySelectorAll('.editorButtonList');
             clientButtons.forEach(button => {
@@ -309,11 +340,11 @@ function initSocket(username) {
 {
     raiseHandButton.addEventListener('click', function() {
         if (raiseHandButton.classList.contains('deactivated')) {
-            toggleButton(raiseHandButton, true); 
+            toggleButton(raiseHandButton, true, 'active', 'deactivated'); 
             showPopup();
         } 
         else {
-            toggleButton(raiseHandButton, false); 
+            toggleButton(raiseHandButton, false, 'active', 'deactivated'); 
         }
     })
 }
@@ -357,7 +388,7 @@ function initSocket(username) {
     });
 }
 
-// Client Panel
+// Client List
 {
     const clientPanelDiv = document.getElementById('clientsPanel');
     const clientPanelResizer = document.getElementById('resizer-right');
@@ -391,44 +422,12 @@ function initSocket(username) {
         dropdown.classList.toggle("show");
     
         if (dropdown.classList.contains("show")) {
-            dropdown.style.display = "block"; // Ensure it's visible
+            dropdown.style.display = "block"; 
         } else {
             setTimeout(() => {
-                dropdown.style.display = "none"; // Delay hiding to allow animation
-            }, 300); // This should match the transition duration (0.3s)
+                dropdown.style.display = "none"; 
+            }, 300); 
         }
-    });
-}
-
-// Custom context menu
-{
-    const customMenu = document.getElementById('customMenu');
-    const editorContainer = editor.getWrapperElement();
-    editorContainer.addEventListener('contextmenu', function(e) {
-        e.preventDefault(); 
-        console.log("hi")
-        customMenu.style.display = 'block';
-        customMenu.style.left = `${e.pageX}px`;
-        customMenu.style.top = `${e.pageY}px`;
-    });
-    
-    document.addEventListener('mousedown', function(e) {
-        setTimeout(function() {
-            if (!customMenu.contains(e.target)) {
-                customMenu.style.display = 'none';
-            }
-        }, 50); 
-    });
-    
-    document.getElementById('menu1').addEventListener('click', async function() 
-    {
-        const selectedText = editor.getSelection(); 
-        addMessageAiChatWindow(selectedText, AIchatMessages, "You", "#6666ff");
-        let aiMessageElement = addMessageAiChatWindow("...", AIchatMessages, "AI Assistant", "#ff6666");
-        console.log("Selected text", selectedText); 
-        customMenu.style.display = 'none';
-        addNewMessage('user', selectedText);
-        sendNewMessage(aiMessageElement);
     });
 }
 
@@ -553,6 +552,39 @@ function initSocket(username) {
     document.querySelectorAll(".tablinks")[2].click(); // Initialize as output tab
 }
 
+// Custom context menu
+{
+    const customMenu = document.getElementById('customMenu');
+    const editorContainer = editor.getWrapperElement();
+    editorContainer.addEventListener('contextmenu', function(e) {
+        e.preventDefault(); 
+        console.log("hi")
+        customMenu.style.display = 'block';
+        customMenu.style.left = `${e.pageX}px`;
+        customMenu.style.top = `${e.pageY}px`;
+    });
+    
+    document.addEventListener('mousedown', function(e) {
+        setTimeout(function() {
+            if (!customMenu.contains(e.target)) {
+                customMenu.style.display = 'none';
+            }
+        }, 50); 
+    });
+    
+    document.getElementById('menu1').addEventListener('click', async function() 
+    {
+        const selectedText = editor.getSelection(); 
+        addMessageAiChatWindow(selectedText, AIchatMessages, "You", "#6666ff");
+        let aiMessageElement = addMessageAiChatWindow("...", AIchatMessages, "AI Assistant", "#ff6666");
+        console.log("Selected text", selectedText); 
+        customMenu.style.display = 'none';
+        addNewMessage('user', selectedText);
+        sendNewMessage(aiMessageElement);
+    });
+}
+
+
 function sendPassword(password_input) {
     let pass = password_input || document.getElementById('adminPassword').value;
     password = pass;
@@ -598,10 +630,10 @@ function setAdmin(Admin){
 }
 function setEditor(Editor){
     if (Editor) {
-        toggleButton(editorSwitch, true);
+        toggleButton(editorSwitch, true, 'active', 'deactivated');
         editor.setOption("readOnly", false);
     } else {
-        toggleButton(editorSwitch, false);
+        toggleButton(editorSwitch, false, 'active', 'deactivated');
         editor.setOption("readOnly", true);
     }
 }
@@ -643,7 +675,7 @@ function populateClients(clients, isAdmin) {
                 editorButton.classList.remove('inactive');
                 activeButton = editorButton;
 
-                toggleButton(editorSwitch, false); 
+                toggleButton(editorSwitch, false, 'active', 'deactivated'); 
                 handleClientToggle(client);
             });
 
@@ -696,26 +728,24 @@ function addMessageAiChatWindow(message, container, user, color) {
     container.scrollTop = container.scrollHeight;
     return messageElement
 }
-function toggleButton(buttonElement ,checked)
+function toggleButton(buttonElement,checked, activatedClass, deactivatedClass)
 {   
     console.log("Before",buttonElement.classList);
     if (checked)
     {
-        console.assert(buttonElement.classList.contains("deactivated"))
-        buttonElement.classList.remove('deactivated'); 
-        buttonElement.classList.add('active');
+        console.assert(buttonElement.classList.contains(deactivatedClass))
+        buttonElement.classList.remove(deactivatedClass); 
+        buttonElement.classList.add(activatedClass);
     }
     else 
     {
-        console.assert(buttonElement.classList.contains("active"))
-        buttonElement.classList.remove('active'); 
-        buttonElement.classList.add('deactivated');
+        console.assert(buttonElement.classList.contains(activatedClass))
+        buttonElement.classList.remove(activatedClass); 
+        buttonElement.classList.add(deactivatedClass);
     }
     console.log("After:", buttonElement.classList);
 
 }
-});
-
 function showPopup() {
     const popup = document.getElementById('popup');
     popup.classList.add('show');
@@ -726,3 +756,4 @@ function showPopup() {
       popup.classList.add('hide');
     }, 2000);
   }
+});
