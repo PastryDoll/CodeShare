@@ -1,4 +1,5 @@
 import { sendNewMessage, addNewMessage } from './components/ai_assistant_history.js';
+import { resolveChoice, confirmationWindow } from './components/confirmation_window.js';
 
 // Global state
 // TODO(CAIO) - Clean up global variables that dont need to be global
@@ -16,6 +17,8 @@ let activeButton = null;
 
 document.addEventListener("DOMContentLoaded", function() 
 {
+
+window.resolveChoice = resolveChoice;
 // Init hot DOM elements
 const AIchatMessages = document.getElementById('messages-ai');
 const chatMessages = document.getElementById('messages');
@@ -268,6 +271,15 @@ function initSocket(username) {
     });
 }
 
+// New Blank Project
+{
+    document.getElementById('blankPage').addEventListener('click', async () => 
+    {
+        const response = await confirmationWindow("This will delete you current project. Are you sure you want to proceed?");
+        if (response) {editor.setValue("")};
+    });
+}
+
 // Editor Upload Content
 {
     const ext2mode = {
@@ -311,7 +323,7 @@ function initSocket(username) {
         'javascript': 'js'
     };
 
-    document.getElementById('exportButton').addEventListener('click', () => {
+    document.getElementById('exportButton').addEventListener('click', async () => {
         const code = editor.getValue(); 
         const blob = new Blob([code], { type: 'text/plain' });
         const link = document.createElement('a');
@@ -425,8 +437,8 @@ function initSocket(username) {
         document.documentElement.removeEventListener('mouseup', stopResize);
     }
 
+    const dropdown = document.getElementById("clientDropdown");
     document.getElementById("clientDropdownButton").addEventListener("click", function () {
-        const dropdown = document.getElementById("clientDropdown");
         dropdown.classList.toggle("show");
     
         if (dropdown.classList.contains("show")) {
