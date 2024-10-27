@@ -21,6 +21,7 @@ const AIchatMessages = document.getElementById('messages-ai');
 const chatMessages = document.getElementById('messages');
 const editorSwitch = document.getElementById('editorButton');
 const outputElement = document.getElementById("output");
+const raiseHandButton = document.getElementById("raisehandButton");
 
 function initSocket(username) {
     socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
@@ -204,13 +205,91 @@ function initSocket(username) {
     };
 }
 
-// IsEditor switch
+// Editor (Editor is Global)
+{
+    const editor_element = document.getElementById("editor")
+    editor = CodeMirror.fromTextArea(editor_element, {
+        mode: "python", 
+        lineNumbers: true, 
+        theme: "dracula", 
+        tabSize: 4
+    });
+    editor.setOption("readOnly", true);
+
+    editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    editor.setSize("100%","100%");
+    editor.on("change", function(instance, changeObj) {
+        console.log(changeObj)
+        var code = instance.getValue();
+        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
+            console.log("Sending message")
+            socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
+        }
+    });
+
+
+}
+// Editor Upload Content
+{
+    const ext2mode = {
+        'py': 'python',
+        'js': 'javascript',
+        'go': 'golang'
+    }
+
+    document.getElementById('importButton').addEventListener('click', () => 
+    {
+        document.getElementById('fileInput').click();
+    });
+    document.getElementById('fileInput').addEventListener('change', (event) => 
+    {
+        const file = event.target.files[0];
+        if (file) 
+        {
+            const reader = new FileReader();
+            reader.onload = function(e) 
+            {
+                const fileContent = e.target.result;
+                const filename = file.name;
+                const extension = filename.split('.').pop().toLowerCase();
+                const mode = ext2mode[extension] || 'plaintext';
+                console.log("Uploading file:", filename, "of type:", mode);
+                editor.setOption('mode', mode);
+                editor.setValue(fileContent);
+                console.log("editor:", editor);
+            };
+            reader.readAsText(file);
+        }
+    });
+}
+
+// Editor Download Content 
+{
+
+    const mode2ext = {
+        'python': 'py',
+        'golang': 'go',
+        'javascript': 'js'
+    };
+
+    document.getElementById('exportButton').addEventListener('click', () => {
+        const code = editor.getValue(); 
+        const blob = new Blob([code], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        console.log(editor)
+        link.download = `code.${mode2ext[editor.options.mode]}`;
+        link.click();
+    });
+}
+
+// Editor Editing Mode button
 {
     editorSwitch.addEventListener('click', function() {
         const isAdmin = (clientId == adminId);
         
         if (editorSwitch.classList.contains('deactivated')) {
-            toggleEditorStatus(true); 
+            toggleButton(editorSwitch, true); 
     
             const clientButtons = document.querySelectorAll('.editorButtonList');
             clientButtons.forEach(button => {
@@ -222,6 +301,58 @@ function initSocket(username) {
         } 
         else if (isAdmin && editorSwitch.classList.contains('active')) {
             console.log('Admin cannot uncheck this switch.');
+        }
+    });
+}
+
+// Editor Raise Hand Button
+{
+    raiseHandButton.addEventListener('click', function() {
+        if (raiseHandButton.classList.contains('deactivated')) {
+            toggleButton(raiseHandButton, true); 
+            showPopup();
+        } 
+        else {
+            toggleButton(raiseHandButton, false); 
+        }
+    })
+}
+
+// Editor Fullscreen
+{
+    document.getElementById('fullscreenButton').addEventListener('click', function () {
+        const editorContainer = document.getElementById('editorContainer');
+        const editor = document.getElementById('editor');
+        const fullscreenIcon = document.getElementById('fullscreenIcon');
+        const minimizeIcon = document.getElementById('minimizeIcon');
+    
+        if (!document.fullscreenElement) {
+            // Enter fullscreen mode
+            if (editorContainer.requestFullscreen) {
+                editorContainer.requestFullscreen()
+            } else if (editorContainer.webkitRequestFullscreen) { // for Safari
+                editorContainer.webkitRequestFullscreen()
+            } else if (editorContainer.msRequestFullscreen) { // for IE11
+                editorContainer.msRequestFullscreen()
+            }
+            fullscreenIcon.classList.remove('show');
+            minimizeIcon.classList.add('show');
+            editor.classList.add('fullscreen');
+            editorContainer.classList.add('fullscreen');
+        } else {
+            // Exit fullscreen mode
+            if (document.exitFullscreen) {
+                document.exitFullscreen()
+            } else if (document.webkitExitFullscreen) { // for Safari
+                document.webkitExitFullscreen()
+            } else if (document.msExitFullscreen) { // for IE11
+                document.msExitFullscreen();
+            }
+            
+            fullscreenIcon.classList.add('show');
+            minimizeIcon.classList.remove('show');
+            editor.classList.remove('fullscreen');
+            editorContainer.classList.remove('fullscreen');
         }
     });
 }
@@ -265,124 +396,6 @@ function initSocket(username) {
             setTimeout(() => {
                 dropdown.style.display = "none"; // Delay hiding to allow animation
             }, 300); // This should match the transition duration (0.3s)
-        }
-    });
-}
-
-// Editor (Editor is Global)
-{
-    const editor_element = document.getElementById("editor")
-    editor = CodeMirror.fromTextArea(editor_element, {
-        mode: "python", 
-        lineNumbers: true, 
-        theme: "dracula", 
-        tabSize: 4
-    });
-    editor.setOption("readOnly", true);
-
-    editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
-    editor.setSize("100%","100%");
-    editor.on("change", function(instance, changeObj) {
-        console.log(changeObj)
-        var code = instance.getValue();
-        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
-            console.log("Sending message")
-            socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
-        }
-    });
-
-
-}
-
-// Editor Fullscreen
-{
-    document.getElementById('fullscreenButton').addEventListener('click', function () {
-        const editorContainer = document.getElementById('editorContainer');
-        const editor = document.getElementById('editor');
-        const fullscreenIcon = document.getElementById('fullscreenIcon');
-        const minimizeIcon = document.getElementById('minimizeIcon');
-    
-        if (!document.fullscreenElement) {
-            // Enter fullscreen mode
-            if (editorContainer.requestFullscreen) {
-                editorContainer.requestFullscreen()
-            } else if (editorContainer.webkitRequestFullscreen) { // for Safari
-                editorContainer.webkitRequestFullscreen()
-            } else if (editorContainer.msRequestFullscreen) { // for IE11
-                editorContainer.msRequestFullscreen()
-            }
-            fullscreenIcon.classList.remove('show');
-            minimizeIcon.classList.add('show');
-            editor.classList.add('fullscreen');
-            editorContainer.classList.add('fullscreen');
-        } else {
-            // Exit fullscreen mode
-            if (document.exitFullscreen) {
-                document.exitFullscreen()
-            } else if (document.webkitExitFullscreen) { // for Safari
-                document.webkitExitFullscreen()
-            } else if (document.msExitFullscreen) { // for IE11
-                document.msExitFullscreen();
-            }
-            
-            fullscreenIcon.classList.add('show');
-            minimizeIcon.classList.remove('show');
-            editor.classList.remove('fullscreen');
-            editorContainer.classList.remove('fullscreen');
-        }
-    });
-}
-
-// Download Editor 
-{
-
-    const mode2ext = {
-        'python': 'py',
-        'golang': 'go',
-        'javascript': 'js'
-    };
-
-    document.getElementById('exportButton').addEventListener('click', () => {
-        const code = editor.getValue(); 
-        const blob = new Blob([code], { type: 'text/plain' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        console.log(editor)
-        link.download = `code.${mode2ext[editor.options.mode]}`;
-        link.click();
-    });
-}
-
-// Upload to Editor
-{
-    const ext2mode = {
-        'py': 'python',
-        'js': 'javascript',
-        'go': 'golang'
-    }
-
-    document.getElementById('importButton').addEventListener('click', () => 
-    {
-        document.getElementById('fileInput').click();
-    });
-    document.getElementById('fileInput').addEventListener('change', (event) => 
-    {
-        const file = event.target.files[0];
-        if (file) 
-        {
-            const reader = new FileReader();
-            reader.onload = function(e) 
-            {
-                const fileContent = e.target.result;
-                const filename = file.name;
-                const extension = filename.split('.').pop().toLowerCase();
-                const mode = ext2mode[extension] || 'plaintext';
-                console.log("Uploading file:", filename, "of type:", mode);
-                editor.setOption('mode', mode);
-                editor.setValue(fileContent);
-                console.log("editor:", editor);
-            };
-            reader.readAsText(file);
         }
     });
 }
@@ -585,10 +598,10 @@ function setAdmin(Admin){
 }
 function setEditor(Editor){
     if (Editor) {
-        toggleEditorStatus(true);
+        toggleButton(editorSwitch, true);
         editor.setOption("readOnly", false);
     } else {
-        toggleEditorStatus(false);
+        toggleButton(editorSwitch, false);
         editor.setOption("readOnly", true);
     }
 }
@@ -609,32 +622,44 @@ function populateClients(clients, isAdmin) {
         label.innerText = client;
         
         if (isAdmin) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.id = `client-${index}`;
-            button.classList.add('editorButtonList', 'inactive'); 
+            const editorButton = document.createElement('button');
+            editorButton.type = 'button';
+            editorButton.id = `client-${index}`;
+            editorButton.classList.add('editorButtonList', 'inactive'); 
 
-            button.innerHTML = `
+            editorButton.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-vector-pen" viewBox="0 0 16 16">
                     <path fill-rule="evenodd" d="M10.646.646a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-1.902 1.902-.829 3.313a1.5 1.5 0 0 1-1.024 1.073L1.254 14.746 4.358 4.4A1.5 1.5 0 0 1 5.43 3.377l3.313-.828zm-1.8 2.908-3.173.793a.5.5 0 0 0-.358.342l-2.57 8.565 8.567-2.57a.5.5 0 0 0 .34-.357l.794-3.174-3.6-3.6z"/>
                     <path fill-rule="evenodd" d="M2.832 13.228 8 9a1 1 0 1 0-1-1l-4.228 5.168-.026.086z"/>
                 </svg>
             `;
 
-            button.addEventListener('click', () => {
-                if (activeButton && activeButton !== button) {
+            editorButton.addEventListener('click', () => {
+                if (activeButton && activeButton !== editorButton) {
                     activeButton.classList.remove('active');
                     activeButton.classList.add('inactive');
                 }
-                button.classList.add('active');
-                button.classList.remove('inactive');
-                activeButton = button;
+                editorButton.classList.add('active');
+                editorButton.classList.remove('inactive');
+                activeButton = editorButton;
 
-                toggleEditorStatus(false); 
+                toggleButton(editorSwitch, false); 
                 handleClientToggle(client);
             });
 
-            li.appendChild(button);
+            const raisehandButton = document.createElement('button');
+            raisehandButton.type = 'button';
+            raisehandButton.id = `raisehand-${index}`;
+            raisehandButton.classList.add('raiseHandButton'); 
+            raisehandButton.title = "Raise your hand";
+            raisehandButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 3 50 50">
+                <path d="M 25.1289 53.5117 C 33.3789 53.5117 39.1680 49.0352 42.2851 40.2461 L 46.4102 28.6445 C 47.4414 25.7149 46.5039 23.3008 44.0664 22.4102 C 41.8867 21.6133 39.7305 22.5508 38.6992 24.9649 L 37.1758 28.7149 C 37.1289 28.8086 37.0586 28.8789 36.9649 28.8789 C 36.8476 28.8789 36.8008 28.7852 36.8008 28.6680 L 36.8008 9.8711 C 36.8008 7.1289 35.0898 5.4180 32.4649 5.4180 C 31.5039 5.4180 30.6367 5.7461 29.9805 6.3555 C 29.6758 3.9649 28.1289 2.4883 25.8086 2.4883 C 23.5351 2.4883 21.9414 4.0117 21.5898 6.3086 C 21.0039 5.7227 20.1602 5.4180 19.3164 5.4180 C 16.8789 5.4180 15.2617 7.1055 15.2617 9.7071 L 15.2617 12.3086 C 14.6289 11.6524 13.6914 11.3008 12.6836 11.3008 C 10.2461 11.3008 8.5586 13.1055 8.5586 15.7305 L 8.5586 35.8633 C 8.5586 46.8320 15.2149 53.5117 25.1289 53.5117 Z M 25.0117 50.2539 C 16.7149 50.2539 11.6524 44.9336 11.6524 35.4883 L 11.6524 16.0586 C 11.6524 15.0742 12.2851 14.3711 13.2695 14.3711 C 14.2305 14.3711 14.9336 15.0742 14.9336 16.0586 L 14.9336 28.0352 C 14.9336 28.9024 15.6367 29.4883 16.3867 29.4883 C 17.1836 29.4883 17.9102 28.9024 17.9102 28.0352 L 17.9102 10.1289 C 17.9102 9.1211 18.5430 8.4414 19.5039 8.4414 C 20.4883 8.4414 21.1680 9.1211 21.1680 10.1289 L 21.1680 26.8398 C 21.1680 27.7071 21.8711 28.2930 22.6445 28.2930 C 23.4414 28.2930 24.1680 27.7071 24.1680 26.8398 L 24.1680 7.2227 C 24.1680 6.2383 24.8242 5.5117 25.8086 5.5117 C 26.7461 5.5117 27.4258 6.2383 27.4258 7.2227 L 27.4258 26.8398 C 27.4258 27.6602 28.0820 28.2930 28.9024 28.2930 C 29.6992 28.2930 30.4024 27.6602 30.4024 26.8398 L 30.4024 10.1289 C 30.4024 9.1211 31.0820 8.4414 32.0430 8.4414 C 33.0273 8.4414 33.6836 9.1211 33.6836 10.1289 L 33.6836 33.1914 C 33.6836 34.2695 34.3633 35.0430 35.3476 35.0430 C 36.1914 35.0430 36.8945 34.6680 37.4336 33.4961 L 40.6211 26.3711 C 41.0430 25.3633 41.8867 24.8476 42.7539 25.1758 C 43.6914 25.5508 44.0195 26.4414 43.5742 27.6602 L 39.4258 39.2383 C 36.5664 47.2305 31.5508 50.2539 25.0117 50.2539 Z"/>
+            </svg>
+            `;
+
+            li.appendChild(editorButton);
+            li.appendChild(raisehandButton);
         }
 
         li.appendChild(label);
@@ -671,22 +696,33 @@ function addMessageAiChatWindow(message, container, user, color) {
     container.scrollTop = container.scrollHeight;
     return messageElement
 }
-function toggleEditorStatus(checked)
+function toggleButton(buttonElement ,checked)
 {   
-    console.log("Before",editorSwitch.classList);
+    console.log("Before",buttonElement.classList);
     if (checked)
     {
-        console.assert(editorSwitch.classList.contains("deactivated"))
-        editorSwitch.classList.remove('deactivated'); 
-        editorSwitch.classList.add('active');
+        console.assert(buttonElement.classList.contains("deactivated"))
+        buttonElement.classList.remove('deactivated'); 
+        buttonElement.classList.add('active');
     }
     else 
     {
-        console.assert(editorSwitch.classList.contains("active"))
-        editorSwitch.classList.remove('active'); 
-        editorSwitch.classList.add('deactivated');
+        console.assert(buttonElement.classList.contains("active"))
+        buttonElement.classList.remove('active'); 
+        buttonElement.classList.add('deactivated');
     }
-    console.log("After:", editorSwitch.classList);
+    console.log("After:", buttonElement.classList);
 
 }
 });
+
+function showPopup() {
+    const popup = document.getElementById('popup');
+    popup.classList.add('show');
+    popup.classList.remove('hide');
+  
+    setTimeout(() => {
+      popup.classList.remove('show');
+      popup.classList.add('hide');
+    }, 2000);
+  }
