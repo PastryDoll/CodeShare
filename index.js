@@ -258,6 +258,14 @@ function initSocket(username) {
             }, 300); 
         }
     });
+
+    document.addEventListener('click', (event) => {
+        if (!document.getElementById('fontSize').contains(event.target) &&
+            !fontList.contains(event.target)) {
+            dropdown.classList.toggle("show");
+            dropdown.style.display = 'none'; 
+        }
+    });
 }
 
 // Editor Upload Content
@@ -265,7 +273,7 @@ function initSocket(username) {
     const ext2mode = {
         'py': 'python',
         'js': 'javascript',
-        'go': 'golang'
+        'go': 'go'
     }
 
     document.getElementById('importButton').addEventListener('click', () => 
@@ -299,7 +307,7 @@ function initSocket(username) {
 
     const mode2ext = {
         'python': 'py',
-        'golang': 'go',
+        'go': 'go',
         'javascript': 'js'
     };
 
@@ -427,6 +435,14 @@ function initSocket(username) {
             setTimeout(() => {
                 dropdown.style.display = "none"; 
             }, 300); 
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!document.getElementById('clientDropdownButton').contains(event.target) &&
+            !fontList.contains(event.target)) {
+            dropdown.classList.toggle("show");
+            dropdown.style.display = 'none'; 
         }
     });
 }
@@ -583,7 +599,6 @@ function initSocket(username) {
         sendNewMessage(aiMessageElement);
     });
 }
-
 
 function sendPassword(password_input) {
     let pass = password_input || document.getElementById('adminPassword').value;
