@@ -113,8 +113,11 @@ function initSocket(username) {
         }
         else if (data.Action == "code")
         {
-            editor.setValue(data.Code);
-            // editor.setCursor({line: 1, ch: 5})
+            const doc = editor.getDoc();
+            const from = data.from;  
+            const to = data.to;      
+            const text = data.text;  
+            doc.replaceRange(text.join("\n"), from, to);
         }
     };
     socket.onerror = function(error) {
@@ -226,11 +229,18 @@ function initSocket(username) {
         var code = instance.getValue();
         if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
             console.log("Sending message")
-            socket.send(JSON.stringify({ Code: code, ClientId: clientId, Action: "code" }));
+            const changeData = {
+                from: changeObj.from,          // Start position of change
+                to: changeObj.to,              // End position of change
+                text: changeObj.text,          // Text inserted (empty if deleted)
+                origin: changeObj.origin,      // Origin of change (+input or +delete)
+                ClientId: clientId,
+                Action: "code"
+            };
+    
+            socket.send(JSON.stringify(changeData));
         }
     });
-
-
 }
 
 // Editor font size

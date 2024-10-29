@@ -13,8 +13,12 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+type Position struct {
+	Line int `json:"line"`
+	Ch   int `json:"ch"`
+}
+
 type Message struct {
-	Code       string `json:"Code,omitempty"`
 	ChatMsg    string `json:"ChatMsg,omitempty"`
 	ClientId   string `json:"ClientId,omitempty"`
 	AdminId    string `json:"AdminId,omitempty"`
@@ -22,6 +26,13 @@ type Message struct {
 	Password   string `json:"Password,omitempty"`
 	Clients    string `json:"Clients,omitempty"`
 	TransferId string `json:"TransferId,omitempty"`
+
+	// Code Changes
+	Code   string   `json:"Code,omitempty"`
+	From   Position `json:"from,omitempty"`
+	To     Position `json:"to,omitempty"`
+	Text   []string `json:"text,omitempty"`
+	Origin string   `json:"origin,omitempty"`
 }
 
 var (
@@ -33,6 +44,7 @@ var (
 	adminId       string = ""
 	adminWs       *websocket.Conn
 	editorId      string = ""
+	code          string = ""
 )
 
 func main() {
@@ -49,6 +61,9 @@ func main() {
 	fileServer := http.FileServer(http.Dir("."))
 	http.Handle("/", fileServer)
 
+	//
+	//// Compile & Run
+	//
 	http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -185,7 +200,7 @@ func handleConnections(ws *websocket.Conn) {
 			log.Printf("Error receiving message: %v", err)
 			break
 		}
-		log.Printf("Received message: %s", msg)
+		log.Printf("Received message: %+v", msg)
 
 		// Validate message
 		if msg.ClientId != clients[ws] {
@@ -238,7 +253,7 @@ func handleConnections(ws *websocket.Conn) {
 		} else {
 			if msg.ClientId == editorId {
 				broadcast <- msg
-				log.Printf("Code update: %s, by %s", msg.Code, msg.ClientId)
+				log.Printf("Code update: %s, by %s", msg.Text, msg.ClientId)
 			} else {
 				log.Printf("Unauthorized attempt to send code by client %s", msg.ClientId)
 			}
