@@ -373,7 +373,6 @@ function initSocket(username) {
 {
     document.getElementById('fullscreenButton').addEventListener('click', function () {
         const editorContainer = document.getElementById('editorContainer');
-        const editor = document.getElementById('editor');
         const fullscreenIcon = document.getElementById('fullscreenIcon');
         const minimizeIcon = document.getElementById('minimizeIcon');
     
@@ -388,7 +387,6 @@ function initSocket(username) {
             }
             fullscreenIcon.classList.remove('show');
             minimizeIcon.classList.add('show');
-            editor.classList.add('fullscreen');
             editorContainer.classList.add('fullscreen');
         } else {
             // Exit fullscreen mode
@@ -402,7 +400,6 @@ function initSocket(username) {
             
             fullscreenIcon.classList.add('show');
             minimizeIcon.classList.remove('show');
-            editor.classList.remove('fullscreen');
             editorContainer.classList.remove('fullscreen');
         }
     });
@@ -757,7 +754,6 @@ function addMessageAiChatWindow(message, container, user, color) {
 }
 function toggleButton(buttonElement,checked, activatedClass, deactivatedClass)
 {   
-    console.log("Before",buttonElement.classList);
     if (checked)
     {
         console.assert(buttonElement.classList.contains(deactivatedClass))
@@ -770,7 +766,6 @@ function toggleButton(buttonElement,checked, activatedClass, deactivatedClass)
         buttonElement.classList.remove(activatedClass); 
         buttonElement.classList.add(deactivatedClass);
     }
-    console.log("After:", buttonElement.classList);
 
 }
 function showPopup() {

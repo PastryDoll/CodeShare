@@ -7,7 +7,7 @@
     width: 125px;
     padding: 10px;
     box-shadow: 9px 10px 6px 0px rgb(0 0 0 / 40%);
-    z-index: 1;
+    z-index: 2;
     transition: transform 0.3s ease, opacity 0.3s ease;
     transform: translateY(0px);
     opacity: 0;

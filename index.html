@@ -71,7 +71,7 @@
             position: absolute; 
             right: 4px; 
             top: 3px; 
-            z-index: 10; 
+            z-index: 2; 
             background-color: transparent; 
             color: #ff0000; 
             border: none;
@@ -101,13 +101,6 @@
 </head>
 <body>
     <div id="popup" class="popup">Client X raised their hand</div>
-    <div id="confirm-modal" class="modalconfirm-overlay">
-        <div class="modalconfirm-content">
-            <p id="modalconfirm-text">Do you want to proceed?</p>
-            <button class="modalconfirm-button yes-button" onclick=resolveChoice(true)>Yes</button>
-            <button class="modalconfirm-button no-button" onclick=resolveChoice(false)>No</button>
-        </div>
-    </div>
     <div id="usernameModal" class="modal">
         <div class="modal-content">
             <h2>Create Username</h2>
@@ -133,6 +126,13 @@
 
     <div id="mainContent">
         <div id="editorContainer">
+            <div id="confirm-modal" class="modalconfirm-overlay">
+                <div class="modalconfirm-content">
+                    <p id="modalconfirm-text">Do you want to proceed?</p>
+                    <button class="modalconfirm-button yes-button" onclick=resolveChoice(true)>Yes</button>
+                    <button class="modalconfirm-button no-button" onclick=resolveChoice(false)>No</button>
+                </div>
+            </div>
             <div id="editorMenu">
                 <div class="left-buttons">
                     <input type="file" id="fileInput" style="display:none;">
