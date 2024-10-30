@@ -114,9 +114,9 @@ function initSocket(username) {
         else if (data.Action == "code")
         {
             const doc = editor.getDoc();
-            const from = data.from;  
-            const to = data.to;      
-            const text = data.text;  
+            const from = data.Changes.from;  
+            const to = data.Changes.to;      
+            const text = data.Changes.text;  
             doc.replaceRange(text.join("\n"), from, to);
         }
     };
@@ -222,23 +222,28 @@ function initSocket(username) {
     });
     editor.getWrapperElement().style.fontSize = `18px`;
     editor.setOption("readOnly", true);
-    editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    // editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    editor.setValue('');
     editor.setSize("100%","100%");
     editor.on("change", function(instance, changeObj) {
         console.log(changeObj)
         var code = instance.getValue();
-        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete")) {
+        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete" || changeObj.origin == "paste")) {
             console.log("Sending message")
             const changeData = {
                 from: changeObj.from,          // Start position of change
                 to: changeObj.to,              // End position of change
                 text: changeObj.text,          // Text inserted (empty if deleted)
                 origin: changeObj.origin,      // Origin of change (+input or +delete)
-                ClientId: clientId,
-                Action: "code"
             };
-    
-            socket.send(JSON.stringify(changeData));
+            const messageData = {
+
+                Changes: changeData,
+                Action: "code",
+                ClientId: clientId
+            }
+                
+            socket.send(JSON.stringify(messageData));
         }
     });
 }

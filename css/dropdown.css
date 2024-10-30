@@ -49,7 +49,7 @@
     padding: 5px 0;
 }
 
-.dropdown-content li:hover {
+.hover-enabled li:hover { 
     background-color: #171c21;
 }
 

@@ -18,6 +18,14 @@ type Position struct {
 	Ch   int `json:"ch"`
 }
 
+type Change struct {
+	From    Position `json:"from"`
+	To      Position `json:"to"`
+	Text    []string `json:"text"`
+	Removed []string `json:"removed"`
+	Origin  string   `json:"origin"`
+}
+
 type Message struct {
 	ChatMsg    string `json:"ChatMsg,omitempty"`
 	ClientId   string `json:"ClientId,omitempty"`
@@ -28,11 +36,8 @@ type Message struct {
 	TransferId string `json:"TransferId,omitempty"`
 
 	// Code Changes
-	Code   string   `json:"Code,omitempty"`
-	From   Position `json:"from,omitempty"`
-	To     Position `json:"to,omitempty"`
-	Text   []string `json:"text,omitempty"`
-	Origin string   `json:"origin,omitempty"`
+	Code    string `json:"Code,omitempty"`
+	Changes Change `json:"Changes,omitempty"`
 }
 
 var (
@@ -44,7 +49,7 @@ var (
 	adminId       string = ""
 	adminWs       *websocket.Conn
 	editorId      string = ""
-	code          string = ""
+	codi          string = ""
 )
 
 func main() {
@@ -113,6 +118,7 @@ func main() {
 		}
 	})
 
+	// Start server
 	addr := ":8080"
 	log.Printf("Starting server on http://localhost%s\n", addr)
 
@@ -208,7 +214,9 @@ func handleConnections(ws *websocket.Conn) {
 			break
 		}
 
-		if msg.Action == "authenticate" {
+		switch msg.Action {
+
+		case "authenticate":
 
 			// Not right password
 			if msg.Password != adminPassword {
@@ -234,7 +242,7 @@ func handleConnections(ws *websocket.Conn) {
 			successMsg := Message{ClientId: msg.ClientId, Action: "authenticated"}
 			broadcast <- successMsg
 
-		} else if msg.Action == "transfer" {
+		case "transfer":
 
 			// Only admin can transfer..
 			if msg.Password != adminPassword {
@@ -247,13 +255,25 @@ func handleConnections(ws *websocket.Conn) {
 			log.Printf("Client %s became editor", editorId)
 			broadcast <- msgNoPass
 
-		} else if msg.Action == "chat" {
+		case "chat":
 			broadcast <- msg
 			log.Printf("Message sent: %s, by %s", msg.ChatMsg, msg.ClientId)
-		} else {
+
+		case "code":
+			codi = applyChange(codi, msg.Changes)
+			log.Printf("Code: %s", codi)
+
 			if msg.ClientId == editorId {
 				broadcast <- msg
-				log.Printf("Code update: %s, by %s", msg.Text, msg.ClientId)
+				log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
+			} else {
+				log.Printf("Unauthorized attempt to send code by client %s", msg.ClientId)
+			}
+		default:
+
+			if msg.ClientId == editorId {
+				broadcast <- msg
+				log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
 			} else {
 				log.Printf("Unauthorized attempt to send code by client %s", msg.ClientId)
 			}
@@ -302,4 +322,36 @@ func handleMessages() {
 		}
 		mutex.Unlock()
 	}
+}
+
+func applyChange(text string, change Change) string {
+	lines := strings.Split(text, "\n")
+	fromLine := change.From.Line
+	fromCh := change.From.Ch
+	toLine := change.To.Line
+	toCh := change.To.Ch
+
+	if len(change.Removed) > 0 {
+		lines[fromLine] = lines[fromLine][:fromCh] + lines[fromLine][fromCh+len(change.Removed[0]):]
+	}
+
+	if len(change.Text) > 0 {
+		lines[fromLine] = lines[fromLine][:fromCh] + change.Text[0] + lines[fromLine][fromCh:]
+	}
+
+	if fromLine != toLine {
+		for i := fromLine + 1; i <= toLine; i++ {
+			if i == toLine {
+				lines[i] = lines[i][toCh:]
+			} else {
+				lines[i] = ""
+			}
+		}
+
+		for i, text := range change.Text[1:] {
+			lines[fromLine+1+i] = text
+		}
+	}
+
+	return strings.Join(lines, "\n")
 }
