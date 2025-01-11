@@ -19,11 +19,9 @@ type Position struct {
 }
 
 type Change struct {
-	From    Position `json:"from"`
-	To      Position `json:"to"`
-	Text    []string `json:"text"`
-	Removed []string `json:"removed"`
-	Origin  string   `json:"origin"`
+	From Position `json:"from"`
+	To   Position `json:"to"`
+	Text []string `json:"text"`
 }
 
 type Message struct {
@@ -49,7 +47,7 @@ var (
 	adminId       string = ""
 	adminWs       *websocket.Conn
 	editorId      string = ""
-	codi          string = ""
+	codi          []string
 )
 
 func main() {
@@ -111,11 +109,12 @@ func main() {
 			m := scanner.Text()
 			log.Printf("Out: %s", m)
 			_, _ = w.Write([]byte(m + "\n"))
-			flusher.Flush() // When FLush is present ResponseWriter sets the Transfer-Encoding to chunked
+			flusher.Flush() // When Flush is present ResponseWriter sets the Transfer-Encoding to chunked
 		}
 		if err := cmd.Wait(); err != nil {
 			log.Printf("Command error: %v", err)
 		}
+		log.Printf("Execution finished")
 	})
 
 	// Start server
@@ -259,10 +258,7 @@ func handleConnections(ws *websocket.Conn) {
 			broadcast <- msg
 			log.Printf("Message sent: %s, by %s", msg.ChatMsg, msg.ClientId)
 
-		case "code":
-			codi = applyChange(codi, msg.Changes)
-			log.Printf("Code: %s", codi)
-
+		case "codechange":
 			if msg.ClientId == editorId {
 				broadcast <- msg
 				log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
@@ -304,7 +300,7 @@ func handleMessages() {
 		msg := <-broadcast
 		mutex.Lock()
 		for client, clientId := range clients {
-			if msg.Action == "code" {
+			if msg.Action == "codechange" {
 				if clientId != msg.ClientId {
 					if err := websocket.JSON.Send(client, msg); err != nil {
 						log.Printf("Error sending message: %v", err)
@@ -324,34 +320,15 @@ func handleMessages() {
 	}
 }
 
-func applyChange(text string, change Change) string {
-	lines := strings.Split(text, "\n")
-	fromLine := change.From.Line
-	fromCh := change.From.Ch
-	toLine := change.To.Line
-	toCh := change.To.Ch
+func insertText(update Change) {
+	lines := update.Text
+	start, end := update.From.Line, update.To.Line
+	codi = append(codi[:start], append(lines, codi[end:]...)...)
+}
 
-	if len(change.Removed) > 0 {
-		lines[fromLine] = lines[fromLine][:fromCh] + lines[fromLine][fromCh+len(change.Removed[0]):]
-	}
-
-	if len(change.Text) > 0 {
-		lines[fromLine] = lines[fromLine][:fromCh] + change.Text[0] + lines[fromLine][fromCh:]
-	}
-
-	if fromLine != toLine {
-		for i := fromLine + 1; i <= toLine; i++ {
-			if i == toLine {
-				lines[i] = lines[i][toCh:]
-			} else {
-				lines[i] = ""
-			}
-		}
-
-		for i, text := range change.Text[1:] {
-			lines[fromLine+1+i] = text
-		}
-	}
-
-	return strings.Join(lines, "\n")
+// Delete lines from the specified position
+func deleteText(update Change) {
+	start, end := update.From.Line, update.To.Line
+	// Remove the text between 'from' and 'to'
+	codi = append(codi[:start], codi[end:]...)
 }

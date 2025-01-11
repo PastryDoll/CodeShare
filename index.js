@@ -1,4 +1,4 @@
-import { sendNewMessage, addNewMessage } from './components/ai_assistant_history.js';
+import { sendNewMessagePair } from './components/ai_assistant_history.js';
 import { resolveChoice, confirmationWindow } from './components/confirmation_window.js';
 
 // Global state
@@ -111,13 +111,14 @@ function initSocket(username) {
             chatMessages.appendChild(messageElement);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-        else if (data.Action == "code")
+        else if (data.Action == "codechange")
         {
             const doc = editor.getDoc();
             const from = data.Changes.from;  
             const to = data.Changes.to;      
             const text = data.Changes.text;  
             doc.replaceRange(text.join("\n"), from, to);
+            console.log("doc", doc)
         }
     };
     socket.onerror = function(error) {
@@ -203,8 +204,7 @@ function initSocket(username) {
             console.log("Sending message:", message);
             addMessageAiChatWindow(message, AIchatMessages, "You", "#6666ff");
             let aiMessageElement = addMessageAiChatWindow("...", AIchatMessages, "AI Assistant", "#ff6666");
-            addNewMessage('user', message);
-            sendNewMessage(aiMessageElement);
+            sendNewMessagePair('user', message, aiMessageElement)
             messageInput.value = ''; 
 
         }
@@ -226,20 +226,18 @@ function initSocket(username) {
     editor.setValue('');
     editor.setSize("100%","100%");
     editor.on("change", function(instance, changeObj) {
-        console.log(changeObj)
-        var code = instance.getValue();
+        console.log(changeObj, instance)
         if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete" || changeObj.origin == "paste")) {
             console.log("Sending message")
             const changeData = {
-                from: changeObj.from,          // Start position of change
-                to: changeObj.to,              // End position of change
-                text: changeObj.text,          // Text inserted (empty if deleted)
-                origin: changeObj.origin,      // Origin of change (+input or +delete)
+                from: changeObj.from,          
+                to: changeObj.to,              
+                text: changeObj.text,          
             };
             const messageData = {
 
                 Changes: changeData,
-                Action: "code",
+                Action: "codechange",
                 ClientId: clientId
             }
                 
@@ -619,8 +617,7 @@ function initSocket(username) {
         let aiMessageElement = addMessageAiChatWindow("...", AIchatMessages, "AI Assistant", "#ff6666");
         console.log("Selected text", selectedText); 
         customMenu.style.display = 'none';
-        addNewMessage('user', selectedText);
-        sendNewMessage(aiMessageElement);
+        sendNewMessagePair('user', selectedText, aiMessageElement)
     });
 }
 
