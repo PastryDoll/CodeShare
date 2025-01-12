@@ -182,15 +182,26 @@ function initSocket(username) {
 {
     const sendButton = document.getElementById('send');
     const messageInput = document.getElementById('message');
-    
+
     sendButton.onclick = function() {
+        sendMessage();
+    };
+
+    messageInput.onkeydown = function(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault(); 
+            sendMessage();
+        } 
+    };
+
+    function sendMessage(message) {
         const message = messageInput.value;
         if (message) {
             console.log("Sending message:", message);
             socket.send(JSON.stringify({ ChatMsg: message, ClientId: clientId, Action: "chat" }));
-            messageInput.value = '';  // Clear the input field
+            messageInput.value = '';
         }
-    };
+    }
 }
 
 // AI Chat
