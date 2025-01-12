@@ -194,7 +194,7 @@ function initSocket(username) {
         } 
     };
 
-    function sendMessage(message) {
+    function sendMessage() {
         const message = messageInput.value;
         if (message) {
             console.log("Sending message:", message);
