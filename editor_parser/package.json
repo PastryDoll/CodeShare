@@ -1,0 +1,14 @@
+{
+  "name": "editor_parser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "editor_parser.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "codemirror": "^6.0.1"
+  }
+}

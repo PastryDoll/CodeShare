@@ -1,2 +1,5 @@
 go.mod
 go.sum
+editor_parser/node_modules/
+editor_parser/package-lock.json
+data/*

@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -39,15 +41,15 @@ type Message struct {
 }
 
 var (
-	clients       = make(map[*websocket.Conn]string)
-	broadcast     = make(chan Message)
-	mutex         sync.Mutex
-	clientCounter int    = 0
-	adminPassword string = "123"
-	adminId       string = ""
-	adminWs       *websocket.Conn
-	editorId      string = ""
-	codi          []string
+	clients              = make(map[*websocket.Conn]string)
+	broadcast            = make(chan Message)
+	mutex                sync.Mutex
+	clientCounter        int    = 0
+	adminPassword        string = "123"
+	adminId              string = ""
+	adminWs              *websocket.Conn
+	editorId             string = ""
+	editorChangesHistory []Change
 )
 
 func main() {
@@ -260,6 +262,27 @@ func handleConnections(ws *websocket.Conn) {
 
 		case "codechange":
 			if msg.ClientId == editorId {
+				editorChangesHistory = append(editorChangesHistory, msg.Changes)
+				changesJSON, err := json.Marshal(msg.Changes)
+				if err != nil {
+					fmt.Printf("Error serializing changes: %v\n", err)
+					return
+				}
+				go func(changesJSON []byte) {
+					cmd := exec.Command("node", "editor_parser/editor_parser.js")
+					cmd.Stdin = bytes.NewBuffer(changesJSON)
+					fmt.Printf("CHANGES %s\n", changesJSON)
+					var out bytes.Buffer
+					cmd.Stdout = &out
+
+					err := cmd.Run()
+					if err != nil {
+						fmt.Printf("Error running Node.js script: %v\n", err)
+						return
+					}
+					fmt.Printf("Node.js script output: %s\n", out.String())
+					log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
+				}(changesJSON)
 				broadcast <- msg
 				log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
 			} else {
@@ -318,17 +341,4 @@ func handleMessages() {
 		}
 		mutex.Unlock()
 	}
-}
-
-func insertText(update Change) {
-	lines := update.Text
-	start, end := update.From.Line, update.To.Line
-	codi = append(codi[:start], append(lines, codi[end:]...)...)
-}
-
-// Delete lines from the specified position
-func deleteText(update Change) {
-	start, end := update.From.Line, update.To.Line
-	// Remove the text between 'from' and 'to'
-	codi = append(codi[:start], codi[end:]...)
 }
