@@ -1,7 +1,34 @@
 const fs = require("fs");
 const { EditorState } = require("@codemirror/state");
 
+const LOG_FILE = "editor_parser/logs.txt";
 const DOCUMENT_PATH = "data/document.txt";
+
+const logStream = fs.createWriteStream(LOG_FILE, { flags: "a" });
+
+//
+//// Set output to logs.txt
+//
+
+console.log = (...args) => {
+  logStream.write(`[LOG] ${args.join(" ")}\n`);
+};
+console.error = (...args) => {
+  logStream.write(`[ERROR] ${args.join(" ")}\n`);
+};
+
+const originalStdoutWrite = process.stdout.write;
+const originalStderrWrite = process.stderr.write;
+
+process.stdout.write = (chunk, encoding, callback) => {
+  logStream.write(`[STDOUT] ${chunk}`);
+  return originalStdoutWrite.call(process.stdout, chunk, encoding, callback);
+};
+
+process.stderr.write = (chunk, encoding, callback) => {
+  logStream.write(`[STDERR] ${chunk}`);
+  return originalStderrWrite.call(process.stderr, chunk, encoding, callback);
+};
 
 function loadDocument(filename) {
   try {

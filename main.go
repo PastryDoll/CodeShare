@@ -50,9 +50,16 @@ var (
 	adminWs              *websocket.Conn
 	editorId             string = ""
 	editorChangesHistory []Change
+	editorChangesQueue   = make(chan []byte, 100)
 )
 
 func main() {
+
+	//
+	//// Send changes to Node parsing process
+	//
+
+	go processChanges()
 
 	//
 	//// Serving Websocket
@@ -268,21 +275,7 @@ func handleConnections(ws *websocket.Conn) {
 					fmt.Printf("Error serializing changes: %v\n", err)
 					return
 				}
-				go func(changesJSON []byte) {
-					cmd := exec.Command("node", "editor_parser/editor_parser.js")
-					cmd.Stdin = bytes.NewBuffer(changesJSON)
-					fmt.Printf("CHANGES %s\n", changesJSON)
-					var out bytes.Buffer
-					cmd.Stdout = &out
-
-					err := cmd.Run()
-					if err != nil {
-						fmt.Printf("Error running Node.js script: %v\n", err)
-						return
-					}
-					fmt.Printf("Node.js script output: %s\n", out.String())
-					log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
-				}(changesJSON)
+				editorChangesQueue <- changesJSON
 				broadcast <- msg
 				log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
 			} else {
@@ -340,5 +333,21 @@ func handleMessages() {
 			}
 		}
 		mutex.Unlock()
+	}
+}
+
+func processChanges() {
+	for changesJSON := range editorChangesQueue {
+		cmd := exec.Command("node", "editor_parser/editor_parser.js")
+		cmd.Stdin = bytes.NewBuffer(changesJSON)
+		var out bytes.Buffer
+		cmd.Stdout = &out
+
+		err := cmd.Run()
+		if err != nil {
+			fmt.Printf("Error running Node.js script: %v\n", err)
+			return
+		}
+		fmt.Printf("Node.js script output: %s\n", out.String())
 	}
 }

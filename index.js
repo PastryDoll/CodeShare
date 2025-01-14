@@ -314,7 +314,7 @@ function initSocket(username) {
     });
 }
 
-// Editor Upload Content
+// Editor Upload/Import Content
 {
     const ext2mode = {
         'py': 'python',
@@ -331,6 +331,7 @@ function initSocket(username) {
         const file = event.target.files[0];
         if (file) 
         {
+            editor.setOption("readOnly", true);
             const reader = new FileReader();
             reader.onload = function(e) 
             {
@@ -344,6 +345,7 @@ function initSocket(username) {
                 console.log("editor:", editor);
             };
             reader.readAsText(file);
+            editor.setOption("readOnly", true);
         }
     });
 }
