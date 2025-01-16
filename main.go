@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -165,6 +166,15 @@ func main() {
 			http.Error(w, "Unauthorized: Invalid editorKey", http.StatusUnauthorized)
 			return
 		}
+
+		filePath := "data/document.txt"
+		if err := os.WriteFile(filePath, []byte(req.Doc), 0644); err != nil {
+			log.Printf("Failed to write to file: %v", err)
+			http.Error(w, "Unable to save file", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("document successfully updated with new content. %s", filePath)
 
 		response := map[string]string{
 			"status":  "success",
