@@ -14,6 +14,8 @@ let userName = null; // Modified in Username initial window
 let editor = null; // Modified in editor
 let clientColors = {}; // Modified in getClientColor
 let activeButton = null;
+let adminKey = null; 
+let editorKey = null; 
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -49,6 +51,17 @@ function initSocket(username) {
             adminId = data.ClientId
             const isAdmin = (adminId == clientId)
             populateClients(clients, isAdmin);
+        }
+        else if (data.Action == "adminKey") 
+        {
+            adminKey = data.AdminKey
+            console.log("Got admin key", adminKey)
+
+        }
+        else if (data.Action == "editorKey")
+        {
+            editorKey = data.EditorKey
+            console.log("Got editor key", editorKey)
         }
         else if (data.Action == "failed")
         {
@@ -331,7 +344,7 @@ function initSocket(username) {
         const file = event.target.files[0];
         if (file) 
         {
-            editor.setOption("readOnly", true);
+            editor.setOption("readOnly", true); // Note(Caio) For safety we block any editing during document upload
             const reader = new FileReader();
             reader.onload = function(e) 
             {
@@ -345,7 +358,7 @@ function initSocket(username) {
                 console.log("editor:", editor);
             };
             reader.readAsText(file);
-            editor.setOption("readOnly", true);
+            editor.setOption("readOnly", false);
         }
     });
 }

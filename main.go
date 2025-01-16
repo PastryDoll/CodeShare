@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,6 +36,8 @@ type Message struct {
 	Password   string `json:"Password,omitempty"`
 	Clients    string `json:"Clients,omitempty"`
 	TransferId string `json:"TransferId,omitempty"`
+	AdminKey   string `json:"AdminKey,omitempty"`
+	EditorKey  string `json:"EditorKey,omitempty"`
 
 	// Code Changes
 	Code    string `json:"Code,omitempty"`
@@ -47,8 +51,10 @@ var (
 	clientCounter        int    = 0
 	adminPassword        string = "123"
 	adminId              string = ""
+	adminKey             string = ""
 	adminWs              *websocket.Conn
 	editorId             string = ""
+	editorKey            string = ""
 	editorChangesHistory []Change
 	editorChangesQueue   = make(chan []byte, 100)
 )
@@ -72,6 +78,19 @@ func main() {
 	//
 	fileServer := http.FileServer(http.Dir("."))
 	http.Handle("/", fileServer)
+
+	// TODO(Caio) Start ussing http instead of WS for most of the things
+	//
+	//// Login
+	//
+	// http.HandleFunc("/send-password", func(w http.ResponseWriter, r *http.Request) {
+	// 	if r.Method != http.MethodPost {
+	// 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+	// 		return
+	// 	}
+	// 	log.Print("Login requested")
+
+	// })
 
 	//
 	//// Compile & Run
@@ -124,6 +143,33 @@ func main() {
 			log.Printf("Command error: %v", err)
 		}
 		log.Printf("Execution finished")
+	})
+
+	//
+	//// Receive document upload and update document on db
+	//
+	http.HandleFunc("/upload-doc", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Doc       string `json:"doc"`
+			EditorKey string `json:"editorKey"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+		response := map[string]string{
+			"message":   "Document uploaded successfully",
+			"doc":       req.Doc,
+			"editorKey": req.EditorKey,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+
 	})
 
 	// Start server
@@ -185,7 +231,7 @@ func handleConnections(ws *websocket.Conn) {
 		adminId = clientId
 		editorId = clientId
 		msg.Password = adminPassword
-		log.Printf("Client %s is now the admin", clientId)
+		log.Printf("Client %s is first user... sending admin password", clientId)
 		if err := websocket.JSON.Send(ws, msg); err != nil {
 			log.Printf("Error sending client authentication: %v", err)
 		}
@@ -232,7 +278,7 @@ func handleConnections(ws *websocket.Conn) {
 				continue
 			}
 
-			// Deauth previous a admin
+			// Deauth previous admin
 			if adminId != msg.ClientId && adminId != "" {
 				log.Printf("Client %s deauthenticated as admin, new admin is %s", adminId, msg.ClientId)
 				deauthMsg := Message{ClientId: adminId, Action: "deauthenticated"}
@@ -241,6 +287,7 @@ func handleConnections(ws *websocket.Conn) {
 
 			// Auth Current admin
 			mutex.Lock()
+			adminKey = generateAuthKey()
 			adminId = msg.ClientId
 			editorId = msg.ClientId
 			adminWs = ws
@@ -248,6 +295,10 @@ func handleConnections(ws *websocket.Conn) {
 
 			log.Printf("Client %s authenticated as admin", msg.ClientId)
 			successMsg := Message{ClientId: msg.ClientId, Action: "authenticated"}
+			keyMsg := Message{ClientId: msg.ClientId, Action: "adminKey", AdminKey: adminKey}
+			if err := websocket.JSON.Send(ws, keyMsg); err != nil {
+				log.Printf("Error sending client adminKey: %v", err)
+			}
 			broadcast <- successMsg
 
 		case "transfer":
@@ -258,7 +309,9 @@ func handleConnections(ws *websocket.Conn) {
 				break
 			}
 			editorId = msg.TransferId
+			editorKey = generateAuthKey()
 			msgNoPass := msg
+			msgNoPass.EditorKey = editorKey
 			msgNoPass.Password = ""
 			log.Printf("Client %s became editor", editorId)
 			broadcast <- msgNoPass
@@ -350,4 +403,15 @@ func processChanges() {
 		}
 		fmt.Printf("Node.js script output: %s\n", out.String())
 	}
+}
+
+func generateAuthKey() string {
+	keyLength := 16
+	bytes := make([]byte, keyLength)
+
+	_, err := rand.Read(bytes)
+	if err != nil {
+		panic("Failed to generate random key: " + err.Error())
+	}
+	return hex.EncodeToString(bytes)
 }
