@@ -52,16 +52,13 @@ function initSocket(username) {
             const isAdmin = (adminId == clientId)
             populateClients(clients, isAdmin);
         }
-        else if (data.Action == "adminKey") 
+        else if (data.Action == "transferKeys") 
         {
             adminKey = data.AdminKey
-            console.log("Got admin key", adminKey)
-
-        }
-        else if (data.Action == "editorKey")
-        {
             editorKey = data.EditorKey
+            console.log("Got admin key", adminKey)
             console.log("Got editor key", editorKey)
+
         }
         else if (data.Action == "failed")
         {
@@ -111,7 +108,11 @@ function initSocket(username) {
         }
         else if (data.Action == "transfer")
         {
-        if (data.TransferId == clientId) {setEditor(true);}
+        if (data.TransferId == clientId) {
+            setEditor(true);
+            editorKey = data.EditorKey
+            console.log("Got editor key", editorKey)
+        }
             else {setEditor(false);}
         }
         else if (data.Action == "chat")
@@ -352,10 +353,42 @@ function initSocket(username) {
                 const filename = file.name;
                 const extension = filename.split('.').pop().toLowerCase();
                 const mode = ext2mode[extension] || 'plaintext';
+
                 console.log("Uploading file:", filename, "of type:", mode);
-                editor.setOption('mode', mode);
-                editor.setValue(fileContent);
-                console.log("editor:", editor);
+                fetch("/upload-doc", 
+                {
+                    method: "POST",
+                    headers:
+                    {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify
+                    ({ 
+                        doc: fileContent, 
+                        editorKey: editorKey 
+                    })
+                })
+                    .then(response =>
+                    {
+                        if (!response.ok)
+                        {
+                            throw new Error("Network response was not ok " + response.statusText);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("Received", data)
+                        if (data.status === "success") {
+                            console.log("File uploaded successfully to server!");
+                            editor.setOption('mode', mode);
+                            editor.setValue(fileContent);
+                            console.log("editor:", editor);
+                        }
+                    })
+                    .catch(error =>
+                    {
+                        console.error("There was a problem with the fetch operation:", error);
+                    });
             };
             reader.readAsText(file);
             editor.setOption("readOnly", false);
@@ -554,6 +587,7 @@ function initSocket(username) {
         });
     });
 
+    // CleanUp(Caio) Why is this here ?
     document.getElementById("sendPassword").addEventListener("click", function() {
     sendPassword(null)
     })
@@ -804,13 +838,13 @@ function toggleButton(buttonElement,checked, activatedClass, deactivatedClass)
 {   
     if (checked)
     {
-        console.assert(buttonElement.classList.contains(deactivatedClass))
+        console.assert(buttonElement.classList.contains(deactivatedClass)) // failing TODO(Caio) fix
         buttonElement.classList.remove(deactivatedClass); 
         buttonElement.classList.add(activatedClass);
     }
     else 
     {
-        console.assert(buttonElement.classList.contains(activatedClass))
+        console.assert(buttonElement.classList.contains(activatedClass)) // failing
         buttonElement.classList.remove(activatedClass); 
         buttonElement.classList.add(deactivatedClass);
     }

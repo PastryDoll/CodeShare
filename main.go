@@ -150,26 +150,30 @@ func main() {
 	//
 	http.HandleFunc("/upload-doc", func(w http.ResponseWriter, r *http.Request) {
 
-		if r.Method != http.MethodPost {
-			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-			return
-		}
 		var req struct {
 			Doc       string `json:"doc"`
 			EditorKey string `json:"editorKey"`
 		}
+
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
-		response := map[string]string{
-			"message":   "Document uploaded successfully",
-			"doc":       req.Doc,
-			"editorKey": req.EditorKey,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
 
+		log.Printf("Authenticating editorKey. Server: %s, Client: %s", editorKey, req.EditorKey)
+		if req.EditorKey != editorKey {
+			http.Error(w, "Unauthorized: Invalid editorKey", http.StatusUnauthorized)
+			return
+		}
+
+		response := map[string]string{
+			"status":  "success",
+			"message": "Code received successfully",
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	})
 
 	// Start server
@@ -288,6 +292,7 @@ func handleConnections(ws *websocket.Conn) {
 			// Auth Current admin
 			mutex.Lock()
 			adminKey = generateAuthKey()
+			editorKey = generateAuthKey()
 			adminId = msg.ClientId
 			editorId = msg.ClientId
 			adminWs = ws
@@ -295,7 +300,7 @@ func handleConnections(ws *websocket.Conn) {
 
 			log.Printf("Client %s authenticated as admin", msg.ClientId)
 			successMsg := Message{ClientId: msg.ClientId, Action: "authenticated"}
-			keyMsg := Message{ClientId: msg.ClientId, Action: "adminKey", AdminKey: adminKey}
+			keyMsg := Message{ClientId: msg.ClientId, Action: "transferKeys", AdminKey: adminKey, EditorKey: editorKey}
 			if err := websocket.JSON.Send(ws, keyMsg); err != nil {
 				log.Printf("Error sending client adminKey: %v", err)
 			}
