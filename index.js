@@ -1,5 +1,6 @@
 import { sendNewMessagePair } from './components/ai_assistant_history.js';
 import { resolveChoice, confirmationWindow } from './components/confirmation_window.js';
+import { resolveConfigurationChoice, configurationWindow } from './components/file_configuration_window.js';
 
 // Global state
 // TODO(CAIO) - Clean up global variables that dont need to be global
@@ -21,6 +22,7 @@ document.addEventListener("DOMContentLoaded", function()
 {
 
 window.resolveChoice = resolveChoice;
+window.resolveConfigurationChoice = resolveConfigurationChoice;
 // Init hot DOM elements
 const AIchatMessages = document.getElementById('messages-ai');
 const chatMessages = document.getElementById('messages');
@@ -281,7 +283,7 @@ function initSocket(username) {
     });
 }
 
-// Editor font size
+// Editor Font Size
 {
     const fontSizes = Array.from({ length: (32 - 8) / 2 + 1 }, (_, i) => 8 + i * 2);
     const fontList = document.getElementById('fontList');
@@ -319,7 +321,7 @@ function initSocket(username) {
     });
 }
 
-// New Blank Project
+// Editor New Blank Project
 {
     document.getElementById('blankPage').addEventListener('click', async () => 
     {
@@ -449,6 +451,16 @@ function initSocket(username) {
             toggleButton(raiseHandButton, false, 'active', 'deactivated'); 
         }
     })
+}
+
+// Editor File Configuration
+{
+    document.getElementById('fileConfig').addEventListener('click', async () => 
+        {
+            const response = await configurationWindow("File Configuration");
+            if (response) {};
+        });
+
 }
 
 // Editor Fullscreen
