@@ -17,6 +17,8 @@ let clientColors = {}; // Modified in getClientColor
 let activeButton = null;
 let adminKey = null; 
 let editorKey = null; 
+let fileName = ""
+let fileFormat = ""
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -354,6 +356,7 @@ function initSocket(username) {
                 const fileContent = e.target.result;
                 const filename = file.name;
                 const extension = filename.split('.').pop().toLowerCase();
+                fileFormat = extension;
                 const mode = ext2mode[extension] || 'plaintext';
 
                 console.log("Uploading file:", filename, "of type:", mode);
@@ -457,10 +460,9 @@ function initSocket(username) {
 {
     document.getElementById('fileConfig').addEventListener('click', async () => 
         {
-            const response = await configurationWindow("File Configuration");
-            if (response) {};
+            const response = await configurationWindow(fileName,fileFormat);
+            if (response) {fileName = response.filename; fileFormat = response.fileFormat};
         });
-
 }
 
 // Editor Fullscreen

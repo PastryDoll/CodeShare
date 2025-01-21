@@ -136,9 +136,15 @@
             </div>
             <div id="fileconfiguration-modal" class="fileconfiguration-overlay">
                 <div class="fileconfiguration-content">
-                    <p id="fileconfiguration-text">Do you want to proceed?</p>
-                    <button class="fileconfiguration-button yes-button" onclick=resolveConfigurationChoice(true)>Yes</button>
-                    <button class="fileconfiguration-button no-button" onclick=resolveConfigurationChoice(false)>No</button>
+                    <p id="fileconfiguration-text">File Configuration</p>
+                    <form>
+                        <label for="fname">File name:</label><br>
+                        <input type="text" id="fname" name="fname"><br>
+                        <label for="fformat">File Format:</label><br>
+                        <input type="text" id="fformat" name="fformat">
+                      </form>
+                      <button class="fileconfiguration-button no-button" onclick=resolveConfigurationChoice(false)>Cancel</button>
+                      <button class="fileconfiguration-button yes-button" onclick=resolveConfigurationChoice(true)>Ok</button>
                 </div>
             </div>
             <div id="editorMenu">
