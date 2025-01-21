@@ -17,7 +17,7 @@ let clientColors = {}; // Modified in getClientColor
 let activeButton = null;
 let adminKey = null; 
 let editorKey = null; 
-let fileName = ""
+let fileName = "Untitled"
 let fileFormat = ""
 
 document.addEventListener("DOMContentLoaded", function() 
@@ -461,7 +461,12 @@ function initSocket(username) {
     document.getElementById('fileConfig').addEventListener('click', async () => 
         {
             const response = await configurationWindow(fileName,fileFormat);
-            if (response) {fileName = response.filename; fileFormat = response.fileFormat};
+            if (response) {
+                fileName = response.filename; 
+                fileFormat = response.fileFormat;
+                document.getElementById('fileName').innerHTML = fileName;
+                console.log(response, document.getElementById('fileName'))
+            };
         });
 }
 
