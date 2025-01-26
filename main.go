@@ -60,7 +60,17 @@ var (
 	editorChangesQueue   = make(chan []byte, 100)
 )
 
+const (
+	codePath string = "data/document.txt"
+)
+
 func main() {
+
+	// Make empty code file
+	if err := os.WriteFile(codePath, []byte(""), 0644); err != nil {
+		log.Printf("Failed to write to file: %v", err)
+		return
+	}
 
 	//
 	//// Send changes to Node parsing process
@@ -167,14 +177,13 @@ func main() {
 			return
 		}
 
-		filePath := "data/document.txt"
-		if err := os.WriteFile(filePath, []byte(req.Doc), 0644); err != nil {
+		if err := os.WriteFile(codePath, []byte(req.Doc), 0644); err != nil {
 			log.Printf("Failed to write to file: %v", err)
 			http.Error(w, "Unable to save file", http.StatusInternalServerError)
 			return
 		}
 
-		log.Printf("document successfully updated with new content. %s", filePath)
+		log.Printf("document successfully updated with new content. %s", codePath)
 
 		response := map[string]string{
 			"status":  "success",
@@ -231,10 +240,22 @@ func handleConnections(ws *websocket.Conn) {
 
 	log.Printf("Client %s connected", clientId)
 
+	// Get current saved code
+	var codeFile []byte
+	codeFile, err := os.ReadFile(codePath)
+	if err != nil {
+		log.Printf("Failed to read file: %v", err)
+		msg := Message{Action: "Failed to read codefile"}
+		websocket.JSON.Send(ws, msg)
+		ws.Close()
+		return
+	}
+
 	// Broadcast new client to everyone
 	msg.ClientId = clientId
 	msg.AdminId = adminId
 	msg.Action = "sayhello"
+	msg.Code = string(codeFile)
 	broadcast <- msg
 
 	msg.Action = "hello"

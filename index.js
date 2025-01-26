@@ -22,7 +22,7 @@ let fileFormat = ""
 
 document.addEventListener("DOMContentLoaded", function() 
 {
-
+    
 window.resolveChoice = resolveChoice;
 window.resolveConfigurationChoice = resolveConfigurationChoice;
 // Init hot DOM elements
@@ -31,6 +31,41 @@ const chatMessages = document.getElementById('messages');
 const editorSwitch = document.getElementById('editorButton');
 const outputElement = document.getElementById("output");
 const raiseHandButton = document.getElementById("raisehandButton");
+
+// Editor (Editor is Global)
+{
+    const editor_element = document.getElementById("editor")
+    editor = CodeMirror.fromTextArea(editor_element, {
+        mode: "python", 
+        lineNumbers: true, 
+        theme: "dracula", 
+        tabSize: 4
+    });
+    editor.getWrapperElement().style.fontSize = `18px`;
+    editor.setOption("readOnly", true);
+    // editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
+    editor.setValue('');
+    editor.setSize("100%","100%");
+    editor.on("change", function(instance, changeObj) {
+        console.log(changeObj, instance)
+        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete" || changeObj.origin == "paste")) {
+            console.log("Sending message")
+            const changeData = {
+                from: changeObj.from,          
+                to: changeObj.to,              
+                text: changeObj.text,          
+            };
+            const messageData = {
+
+                Changes: changeData,
+                Action: "codechange",
+                ClientId: clientId
+            }
+                
+            socket.send(JSON.stringify(messageData));
+        }
+    });
+}
 
 function initSocket(username) {
     socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
@@ -88,6 +123,9 @@ function initSocket(username) {
                 clientId = data.ClientId;
                 document.getElementById("username").textContent = clientId;
                 console.log("Your id is", clientId);
+                const doc = editor.getDoc();
+                doc.setValue(data.Code)
+                
                 if (data.Password) 
                 {
                     console.log("Your password is:", data.Password);
@@ -248,41 +286,6 @@ function initSocket(username) {
             messageInput.value = ''; 
         }
     }
-}
-
-// Editor (Editor is Global)
-{
-    const editor_element = document.getElementById("editor")
-    editor = CodeMirror.fromTextArea(editor_element, {
-        mode: "python", 
-        lineNumbers: true, 
-        theme: "dracula", 
-        tabSize: 4
-    });
-    editor.getWrapperElement().style.fontSize = `18px`;
-    editor.setOption("readOnly", true);
-    // editor.setValue('import time\nprint("Hello, World!")\nprint("Waiting...")\ntime.sleep(3)\nprint("Done!")');
-    editor.setValue('');
-    editor.setSize("100%","100%");
-    editor.on("change", function(instance, changeObj) {
-        console.log(changeObj, instance)
-        if (clientId && (changeObj.origin == "+input" || changeObj.origin == "+delete" || changeObj.origin == "paste")) {
-            console.log("Sending message")
-            const changeData = {
-                from: changeObj.from,          
-                to: changeObj.to,              
-                text: changeObj.text,          
-            };
-            const messageData = {
-
-                Changes: changeData,
-                Action: "codechange",
-                ClientId: clientId
-            }
-                
-            socket.send(JSON.stringify(messageData));
-        }
-    });
 }
 
 // Editor Font Size
