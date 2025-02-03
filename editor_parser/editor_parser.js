@@ -2,7 +2,7 @@ const fs = require("fs");
 const { EditorState } = require("@codemirror/state");
 
 const LOG_FILE = "editor_parser/logs.txt";
-const DOCUMENT_PATH = "data/document.txt";
+const DOCUMENT_PATH = "data/";
 
 const logStream = fs.createWriteStream(LOG_FILE, { flags: "a" });
 
@@ -70,12 +70,13 @@ function saveToFile(filename, content) {
 process.stdin.on("data", (data) => {
   try {
     const changes = JSON.parse(data.toString());
-    const currentText = loadDocument(DOCUMENT_PATH);
+    const currentChangeId = changes.id
+    const currentText = loadDocument(`${DOCUMENT_PATH}${currentChangeId-1}`);
     const state = EditorState.create({
       doc: currentText,
     });
     const updatedDoc = applyChanges(changes, state);
-    saveToFile(DOCUMENT_PATH, updatedDoc);
+    saveToFile(`${DOCUMENT_PATH}${currentChangeId}`, updatedDoc);
     process.stdout.write(updatedDoc);
   } catch (error) {
     process.stderr.write(`Error: ${error.message}`);

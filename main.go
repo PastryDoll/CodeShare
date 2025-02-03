@@ -27,6 +27,7 @@ type Change struct {
 	From Position `json:"from"`
 	To   Position `json:"to"`
 	Text []string `json:"text"`
+	Id   uint64   `json:"id"`
 }
 
 type Message struct {
@@ -49,15 +50,14 @@ var (
 	clients              = make(map[*websocket.Conn]string)
 	broadcast            = make(chan Message)
 	mutex                sync.Mutex
-	clientCounter        int    = 0
 	adminPassword        string = "123"
 	adminId              string = ""
 	adminKey             string = ""
-	adminWs              *websocket.Conn
 	editorId             string = ""
 	editorKey            string = ""
 	editorChangesHistory []Change
-	editorChangesQueue   = make(chan []byte, 100)
+	editorChangesQueue          = make(chan []byte, 100)
+	currChangeId         uint64 = 0
 )
 
 const (
@@ -326,7 +326,6 @@ func handleConnections(ws *websocket.Conn) {
 			editorKey = generateAuthKey()
 			adminId = msg.ClientId
 			editorId = msg.ClientId
-			adminWs = ws
 			mutex.Unlock()
 
 			log.Printf("Client %s authenticated as admin", msg.ClientId)
@@ -358,6 +357,8 @@ func handleConnections(ws *websocket.Conn) {
 
 		case "codechange":
 			if msg.ClientId == editorId {
+				msg.Changes.Id = currChangeId
+				currChangeId += 1
 				editorChangesHistory = append(editorChangesHistory, msg.Changes)
 				changesJSON, err := json.Marshal(msg.Changes)
 				if err != nil {
