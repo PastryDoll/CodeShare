@@ -2,7 +2,7 @@ const fs = require("fs");
 const { EditorState } = require("@codemirror/state");
 
 const LOG_FILE = "editor_parser/logs.txt";
-const DOCUMENT_PATH = "data/";
+const DOCUMENT_PATH = "data/document-";
 
 const logStream = fs.createWriteStream(LOG_FILE, { flags: "a" });
 
@@ -44,6 +44,19 @@ function loadDocument(filename) {
   }
 }
 
+function removeDocument(filename) {
+  try {
+    if (fs.existsSync(filename)) {
+      fs.unlinkSync(filename);  
+      console.log(`File removed: ${filename}`);
+    } else {
+      console.log(`File does not exist: ${filename}`);
+    }
+  } catch (error) {
+    console.error(`Error removing document: ${error.message}`);
+  }
+}
+
 function applyChanges(changes, state) {
   console.log("Original Text:", state.doc.toString());
 
@@ -77,6 +90,7 @@ process.stdin.on("data", (data) => {
     });
     const updatedDoc = applyChanges(changes, state);
     saveToFile(`${DOCUMENT_PATH}${currentChangeId}`, updatedDoc);
+    removeDocument(`${DOCUMENT_PATH}${currentChangeId-1}`)
     process.stdout.write(updatedDoc);
   } catch (error) {
     process.stderr.write(`Error: ${error.message}`);

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -50,6 +51,7 @@ var (
 	clients              = make(map[*websocket.Conn]string)
 	broadcast            = make(chan Message)
 	mutex                sync.Mutex
+	docFileMutex         sync.Mutex
 	adminPassword        string = "123"
 	adminId              string = ""
 	adminKey             string = ""
@@ -57,20 +59,83 @@ var (
 	editorKey            string = ""
 	editorChangesHistory []Change
 	editorChangesQueue          = make(chan []byte, 100)
-	currChangeId         uint64 = 0
+	currChangeId         uint64 = 1
 )
 
 const (
-	codePath string = "data/document.txt"
+	dataDir string = "data/"
 )
+
+func getDocumentFilePath() (string, error) {
+	var documentPath string
+	var count int
+
+	err := filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasPrefix(info.Name(), "document-") {
+			count++
+			if count > 1 {
+				return fmt.Errorf("multiple files with the prefix 'document-' found")
+			}
+			documentPath = path
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+	if count == 0 {
+		return "", fmt.Errorf("no file with the prefix 'document-' found")
+	}
+	return documentPath, nil
+}
+
+func renameDocumentFile(newName string) error {
+	filePath, err := getDocumentFilePath()
+	if err != nil || filePath == "" {
+		return fmt.Errorf("no document file found: %v", err)
+	}
+
+	dir := filepath.Dir(filePath)
+	newFilePath := filepath.Join(dir, newName)
+
+	err = os.Rename(filePath, newFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to rename file: %v", err)
+	}
+
+	log.Printf("File renamed to: %s", newFilePath)
+	return nil
+}
+
+func writeToDocument(data string) {
+	filePath, err := getDocumentFilePath()
+	if err != nil {
+		log.Printf("No document file found: %v", err)
+		return
+	}
+	if filePath == "" {
+		filePath = dataDir + "document-0"
+	}
+	if err := os.WriteFile(filePath, []byte(data), 0644); err != nil {
+		log.Printf("Failed to write to file: %v", err)
+	}
+
+}
 
 func main() {
 
 	// Make empty code file
-	if err := os.WriteFile(codePath, []byte(""), 0644); err != nil {
-		log.Printf("Failed to write to file: %v", err)
-		return
+	docFileMutex.Lock()
+	writeToDocument("")
+	err := renameDocumentFile("document-0")
+	if err != nil {
+		log.Printf("Error renaming file: %v", err)
 	}
+	docFileMutex.Unlock()
 
 	//
 	//// Send changes to Node parsing process
@@ -177,13 +242,11 @@ func main() {
 			return
 		}
 
-		if err := os.WriteFile(codePath, []byte(req.Doc), 0644); err != nil {
-			log.Printf("Failed to write to file: %v", err)
-			http.Error(w, "Unable to save file", http.StatusInternalServerError)
-			return
-		}
+		docFileMutex.Lock()
+		writeToDocument(req.Doc)
+		docFileMutex.Unlock()
 
-		log.Printf("document successfully updated with new content. %s", codePath)
+		log.Printf("document successfully updated with new content")
 
 		response := map[string]string{
 			"status":  "success",
@@ -199,7 +262,7 @@ func main() {
 	addr := ":8080"
 	log.Printf("Starting server on http://localhost%s\n", addr)
 
-	err := http.ListenAndServe(addr, nil)
+	err = http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Fatalf("Could not start server: %s\n", err.Error())
 	}
@@ -241,11 +304,16 @@ func handleConnections(ws *websocket.Conn) {
 	log.Printf("Client %s connected", clientId)
 
 	// Get current saved code
-	var codeFile []byte
-	codeFile, err := os.ReadFile(codePath)
+	var docFile []byte
+	docPath, err := getDocumentFilePath()
+	if err != nil || docPath == "" {
+		log.Printf("No document file found: %v", err)
+		return
+	}
+	docFile, err = os.ReadFile(docPath)
 	if err != nil {
 		log.Printf("Failed to read file: %v", err)
-		msg := Message{Action: "Failed to read codefile"}
+		msg := Message{Action: "Failed to read docFile"}
 		websocket.JSON.Send(ws, msg)
 		ws.Close()
 		return
@@ -255,7 +323,7 @@ func handleConnections(ws *websocket.Conn) {
 	msg.ClientId = clientId
 	msg.AdminId = adminId
 	msg.Action = "sayhello"
-	msg.Code = string(codeFile)
+	msg.Code = string(docFile)
 	broadcast <- msg
 
 	msg.Action = "hello"
@@ -433,11 +501,14 @@ func processChanges() {
 		var out bytes.Buffer
 		cmd.Stdout = &out
 
+		docFileMutex.Lock()
 		err := cmd.Run()
 		if err != nil {
 			fmt.Printf("Error running Node.js script: %v\n", err)
 			return
 		}
+		docFileMutex.Unlock()
+
 		fmt.Printf("Node.js script output: %s\n", out.String())
 	}
 }
