@@ -22,7 +22,7 @@ let fileFormat = ""
 
 document.addEventListener("DOMContentLoaded", function() 
 {
-    
+
 window.resolveChoice = resolveChoice;
 window.resolveConfigurationChoice = resolveConfigurationChoice;
 // Init hot DOM elements
@@ -194,7 +194,7 @@ function initSocket(username) {
         const usernameInput = document.getElementById("usernametext").value;
         if (usernameInput) {
             userName = usernameInput;
-            initSocket(userName, chatMessages);       
+            login(userName);
         } else {
             alert("This user name is in use or invalid");
         }
@@ -713,6 +713,26 @@ function initSocket(username) {
     });
 }
 
+function login(userName){
+
+    fetch("/login", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ userName: userName })
+    }).then(response =>
+    {
+        if (!response.ok)
+        {
+            throw new Error("Network response was not ok " + response.statusText);
+        }
+        return  response.json();
+    }).then(data => 
+    {
+        initSocket(userName, chatMessages);       
+    })
+}
 function sendPassword(password_input) {
     let pass = password_input || document.getElementById('adminPassword').value;
     password = pass;

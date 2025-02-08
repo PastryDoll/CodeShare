@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -63,68 +64,9 @@ var (
 )
 
 const (
-	dataDir string = "data/"
+	HTTP_FAILED string = "failed"
+	DATA_DIR    string = "data/"
 )
-
-func getDocumentFilePath() (string, error) {
-	var documentPath string
-	var count int
-
-	err := filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && strings.HasPrefix(info.Name(), "document-") {
-			count++
-			if count > 1 {
-				return fmt.Errorf("multiple files with the prefix 'document-' found")
-			}
-			documentPath = path
-		}
-		return nil
-	})
-
-	if err != nil {
-		return "", err
-	}
-	if count == 0 {
-		return "", fmt.Errorf("no file with the prefix 'document-' found")
-	}
-	return documentPath, nil
-}
-
-func renameDocumentFile(newName string) error {
-	filePath, err := getDocumentFilePath()
-	if err != nil || filePath == "" {
-		return fmt.Errorf("no document file found: %v", err)
-	}
-
-	dir := filepath.Dir(filePath)
-	newFilePath := filepath.Join(dir, newName)
-
-	err = os.Rename(filePath, newFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to rename file: %v", err)
-	}
-
-	log.Printf("File renamed to: %s", newFilePath)
-	return nil
-}
-
-func writeToDocument(data string) {
-	filePath, err := getDocumentFilePath()
-	if err != nil {
-		log.Printf("No document file found: %v", err)
-		return
-	}
-	if filePath == "" {
-		filePath = dataDir + "document-0"
-	}
-	if err := os.WriteFile(filePath, []byte(data), 0644); err != nil {
-		log.Printf("Failed to write to file: %v", err)
-	}
-
-}
 
 func main() {
 
@@ -159,14 +101,111 @@ func main() {
 	//
 	//// Login
 	//
-	// http.HandleFunc("/send-password", func(w http.ResponseWriter, r *http.Request) {
-	// 	if r.Method != http.MethodPost {
-	// 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-	// 		return
-	// 	}
-	// 	log.Print("Login requested")
 
-	// })
+	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			UserName string `json:"user"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		clientId := req.UserName
+		log.Printf("Login requested, user: %s", clientId)
+
+		var response struct {
+			Status  string `json:"status"`
+			Message string `json:"message"`
+		}
+
+		//
+		//// Check if username is valid
+		//
+		mutex.Lock()
+		var clientIDs []string
+		for _, clientID := range clients {
+			if clientID == clientId || clientId == "" {
+				log.Printf("Client ID is in use: %s", clientId)
+				response.Status = HTTP_FAILED
+				response.Message = "Client ID is already in use, try another one."
+				break
+			}
+			clientIDs = append(clientIDs, clientID)
+		}
+		mutex.Unlock()
+
+		// Get current saved code
+		docFileMutex.Lock()
+		var docFile []byte
+		currCodeId, err := getCurrentCodeId()
+		if err != nil {
+			fmt.Println("Error getting code id:", err)
+		}
+		docPath, err := getDocumentFilePath()
+		if err != nil || docPath == "" {
+			log.Printf("No document file found: %v", err)
+			response.Status = HTTP_FAILED
+			response.Message = "Server failed to retrieve code."
+			return
+		}
+		log.Printf("Path: %s", docPath)
+		docFile, err = os.ReadFile(docPath)
+		if err != nil {
+			log.Printf("Failed to read file: %v", err)
+			response.Status = HTTP_FAILED
+			response.Message = "Server failed to retrieve code."
+			return
+		}
+
+		docFileMutex.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "Server failed to encode JSON response", http.StatusInternalServerError)
+			return
+		}
+	})
+
+	//
+	//// Sync user code with server
+	//
+	http.HandleFunc("/sync", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			UserCurrCodeId string `json:"currentCodeId"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		var response struct {
+			Status  string   `json:"status"`
+			Changes []Change `json:"changes"`
+		}
+
+		docFileMutex.Lock()
+		missingChanges := getUserCodeMissingChanges(req.UserCurrCodeId)
+		response.Changes = missingChanges
+		docFileMutex.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "Server failed to encode JSON response", http.StatusInternalServerError)
+			return
+		}
+	})
 
 	//
 	//// Compile & Run
@@ -272,52 +311,8 @@ func handleConnections(ws *websocket.Conn) {
 	var msg Message
 
 	clientId := ws.Request().URL.Query().Get("clientId")
-	if clientId == "" {
-		log.Printf("Client ID is in use: %s", clientId)
-		msg := Message{Action: "validation_failed"}
-		websocket.JSON.Send(ws, msg)
-		ws.Close()
-		return
-	}
-	// Check if clientid exists or Broadcast all clients
-	mutex.Lock()
-	{
-		var clientIDs []string
-		for _, clientID := range clients {
-			clientIDs = append(clientIDs, clientID)
-			if clientID == clientId {
-				log.Printf("Client ID is in use: %s", clientId)
-				msg := Message{Action: "failed"}
-				websocket.JSON.Send(ws, msg)
-				ws.Close()
-				mutex.Unlock()
-				return
-			}
-		}
-		clientIDs = append(clientIDs, clientId)
-		msg.Clients = strings.Join(clientIDs, ",")
-	}
-	// Register new client and set admin
-	clients[ws] = clientId
-	mutex.Unlock()
 
 	log.Printf("Client %s connected", clientId)
-
-	// Get current saved code
-	var docFile []byte
-	docPath, err := getDocumentFilePath()
-	if err != nil || docPath == "" {
-		log.Printf("No document file found: %v", err)
-		return
-	}
-	docFile, err = os.ReadFile(docPath)
-	if err != nil {
-		log.Printf("Failed to read file: %v", err)
-		msg := Message{Action: "Failed to read docFile"}
-		websocket.JSON.Send(ws, msg)
-		ws.Close()
-		return
-	}
 
 	// Broadcast new client to everyone
 	msg.ClientId = clientId
@@ -363,7 +358,7 @@ func handleConnections(ws *websocket.Conn) {
 			log.Printf("Error receiving message: %v", err)
 			break
 		}
-		log.Printf("Received message: %+v", msg)
+		// log.Printf("Received message: %+v", msg)
 
 		// Validate message
 		if msg.ClientId != clients[ws] {
@@ -427,7 +422,9 @@ func handleConnections(ws *websocket.Conn) {
 			if msg.ClientId == editorId {
 				msg.Changes.Id = currChangeId
 				currChangeId += 1
+				docFileMutex.Lock()
 				editorChangesHistory = append(editorChangesHistory, msg.Changes)
+				docFileMutex.Unlock()
 				changesJSON, err := json.Marshal(msg.Changes)
 				if err != nil {
 					fmt.Printf("Error serializing changes: %v\n", err)
@@ -435,7 +432,7 @@ func handleConnections(ws *websocket.Conn) {
 				}
 				editorChangesQueue <- changesJSON
 				broadcast <- msg
-				log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
+				// log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
 			} else {
 				log.Printf("Unauthorized attempt to send code by client %s", msg.ClientId)
 			}
@@ -496,6 +493,8 @@ func handleMessages() {
 
 func processChanges() {
 	for changesJSON := range editorChangesQueue {
+		fmt.Printf("Current queue change: %v \n", string(changesJSON))
+
 		cmd := exec.Command("node", "editor_parser/editor_parser.js")
 		cmd.Stdin = bytes.NewBuffer(changesJSON)
 		var out bytes.Buffer
@@ -509,7 +508,7 @@ func processChanges() {
 		}
 		docFileMutex.Unlock()
 
-		fmt.Printf("Node.js script output: %s\n", out.String())
+		// fmt.Printf("Node.js script output: %s\n", out.String())
 	}
 }
 
@@ -522,4 +521,92 @@ func generateAuthKey() string {
 		panic("Failed to generate random key: " + err.Error())
 	}
 	return hex.EncodeToString(bytes)
+}
+
+func getDocumentFilePath() (string, error) {
+	var documentPath string
+	var count int
+
+	err := filepath.Walk(DATA_DIR, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasPrefix(info.Name(), "document-") {
+			count++
+			if count > 1 {
+				return fmt.Errorf("multiple files with the prefix 'document-' found")
+			}
+			documentPath = path
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+	if count == 0 {
+		return "", fmt.Errorf("no file with the prefix 'document-' found")
+	}
+	return documentPath, nil
+}
+
+func renameDocumentFile(newName string) error {
+	filePath, err := getDocumentFilePath()
+	if err != nil || filePath == "" {
+		return fmt.Errorf("no document file found: %v", err)
+	}
+
+	dir := filepath.Dir(filePath)
+	newFilePath := filepath.Join(dir, newName)
+
+	err = os.Rename(filePath, newFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to rename file: %v", err)
+	}
+
+	log.Printf("File renamed to: %s", newFilePath)
+	return nil
+}
+
+func writeToDocument(data string) {
+	filePath, err := getDocumentFilePath()
+	if err != nil {
+		log.Printf("No document file found: %v", err)
+		return
+	}
+	if filePath == "" {
+		filePath = DATA_DIR + "document-0"
+	}
+	if err := os.WriteFile(filePath, []byte(data), 0644); err != nil {
+		log.Printf("Failed to write to file: %v", err)
+	}
+
+}
+
+func getCurrentCodeId() (string, error) {
+	filePath, err := getDocumentFilePath()
+	if err != nil {
+		log.Printf("No document file found: %v", err)
+		return "", err
+	}
+	docIdStr := strings.TrimPrefix(filePath, "data/document-")
+
+	return docIdStr, nil
+
+}
+
+func getUserCodeMissingChanges(userCodeId string) ([]Change, error) {
+	currCodeId, err := getCurrentCodeId()
+	if err != nil {
+		fmt.Println("Error getting code id:", err)
+		return nil, err
+	}
+	currCodeIdInt, err := strconv.Atoi(currCodeId)
+	if err != nil {
+		fmt.Println("Error converting to int:", err)
+		return nil, err
+	}
+	newChanges := editorChangesHistory[currCodeIdInt:]
+	return newChanges, nil
+
 }
