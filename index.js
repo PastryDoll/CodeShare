@@ -19,6 +19,8 @@ let adminKey = null;
 let editorKey = null; 
 let fileName = "Untitled"
 let fileFormat = ""
+let currCodeId = 0
+let clientKey = ""
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -68,8 +70,7 @@ const raiseHandButton = document.getElementById("raisehandButton");
 }
 
 function initSocket(username) {
-    socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}`);
-    console.log(socket);
+    socket = new WebSocket(`ws://localhost:8080/ws?clientId=${username}&clientKey=${clientKey}`);
     socket.onopen = function() {
         console.log("Connected to WebSocket server");
     };
@@ -114,27 +115,6 @@ function initSocket(username) {
                 editorSwitch.disabled = true;
             };
         }
-        else if (data.Action == "hello") 
-        {
-            if (!clientId)
-            {
-                const modal = document.getElementById("usernameModal");
-                modal.style.display = "none";
-                clientId = data.ClientId;
-                document.getElementById("username").textContent = clientId;
-                console.log("Your id is", clientId);
-                const doc = editor.getDoc();
-                doc.setValue(data.Code)
-                
-                if (data.Password) 
-                {
-                    console.log("Your password is:", data.Password);
-                    localStorage.setItem('adminPassword', data.Password);
-                    document.getElementById('adminPassword').value = data.Password;
-                    sendPassword(savedPassword);
-                }
-            }
-        } 
         else if (data.Action == "sayhello")
         {
             adminId = data.AdminId;
@@ -173,6 +153,9 @@ function initSocket(username) {
             const from = data.Changes.from;  
             const to = data.Changes.to;      
             const text = data.Changes.text;  
+            const changeId = data.Changes.id
+            if (changeId != currCodeId + 1) alert("Code id corruption. Current: ", currCodeId, "Incoming: ",changeId);
+            currCodeId = changeId
             doc.replaceRange(text.join("\n"), from, to);
             console.log("doc", doc)
         }
@@ -729,7 +712,28 @@ function login(userName){
         }
         return  response.json();
     }).then(data => 
-    {
+    {   
+        console.log("Login response", data)
+        clientKey = data.ClientKey
+        currCodeId = data.CodeId
+        {
+            const modal = document.getElementById("usernameModal");
+            modal.style.display = "none";
+            clientId = userName;
+            document.getElementById("username").textContent = clientId;
+            console.log("Your id is", clientId);
+            const doc = editor.getDoc();
+            doc.setValue(data.Code)
+            
+            if (data.Password) 
+                {
+                    console.log("Your password is:", data.Password);
+                    localStorage.setItem('adminPassword', data.Password);
+                    document.getElementById('adminPassword').value = data.Password;
+                    sendPassword(savedPassword);
+                }
+            }
+        populateClients(data.ClientList, false)
         initSocket(userName, chatMessages);       
     })
 }

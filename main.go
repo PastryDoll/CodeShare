@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -48,6 +50,14 @@ type Message struct {
 	Changes Change `json:"Changes,omitempty"`
 }
 
+type LoginMessage struct {
+	ClientKey     string `json:"ClientKey"`
+	Code          string `json:"Code"`
+	CodeId        int    `json:"CodeId"`
+	ClientList    string `json:"ClientList"`
+	AdminPassword string `json:"Password"`
+}
+
 var (
 	clients              = make(map[*websocket.Conn]string)
 	broadcast            = make(chan Message)
@@ -61,6 +71,7 @@ var (
 	editorChangesHistory []Change
 	editorChangesQueue          = make(chan []byte, 100)
 	currChangeId         uint64 = 1
+	SECRET_256_KEY       []byte = []byte("TOPSECRET")
 )
 
 const (
@@ -109,7 +120,7 @@ func main() {
 		}
 
 		var req struct {
-			UserName string `json:"user"`
+			UserName string `json:"userName"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -119,51 +130,78 @@ func main() {
 		clientId := req.UserName
 		log.Printf("Login requested, user: %s", clientId)
 
-		var response struct {
-			Status  string `json:"status"`
-			Message string `json:"message"`
-		}
+		var response LoginMessage
 
 		//
 		//// Check if username is valid
 		//
 		mutex.Lock()
-		var clientIDs []string
-		for _, clientID := range clients {
-			if clientID == clientId || clientId == "" {
-				log.Printf("Client ID is in use: %s", clientId)
-				response.Status = HTTP_FAILED
-				response.Message = "Client ID is already in use, try another one."
-				break
+		{
+			var clientIDs []string
+			for _, clientID := range clients {
+				if clientID == clientId || clientId == "" {
+					log.Printf("Client ID is in use: %s", clientId)
+					http.Error(w, "Client ID is already in use, try another one.", http.StatusBadRequest)
+					return
+				}
+				clientIDs = append(clientIDs, clientID)
 			}
-			clientIDs = append(clientIDs, clientID)
+			response.ClientList = strings.Join(clientIDs, ",") // TODO Let this be a list and deal on the clieny
+
 		}
 		mutex.Unlock()
+		log.Printf("Client has valid ID: %s", clientId)
 
 		// Get current saved code
 		docFileMutex.Lock()
-		var docFile []byte
-		currCodeId, err := getCurrentCodeId()
-		if err != nil {
-			fmt.Println("Error getting code id:", err)
+		{
+			var docFile []byte
+			currCodeId, err := getCurrentCodeId()
+			if err != nil {
+				fmt.Println("Error getting code id:", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			currCodeIdInt, err := strconv.Atoi(currCodeId)
+			if err != nil {
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			docPath, err := getDocumentFilePath()
+			if err != nil || docPath == "" {
+				log.Printf("No document file found: %v", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+			log.Printf("Path: %s", docPath)
+			docFile, err = os.ReadFile(docPath)
+			if err != nil {
+				log.Printf("Failed to read file: %v", err)
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+
+			response.CodeId = currCodeIdInt
+			response.Code = string(docFile)
+
 		}
-		docPath, err := getDocumentFilePath()
-		if err != nil || docPath == "" {
-			log.Printf("No document file found: %v", err)
-			response.Status = HTTP_FAILED
-			response.Message = "Server failed to retrieve code."
-			return
-		}
-		log.Printf("Path: %s", docPath)
-		docFile, err = os.ReadFile(docPath)
-		if err != nil {
-			log.Printf("Failed to read file: %v", err)
-			response.Status = HTTP_FAILED
-			response.Message = "Server failed to retrieve code."
-			return
+		docFileMutex.Unlock()
+
+		// If new client is admin we send the password, else we say hello with no password to client
+		{
+			if adminId == "" {
+				mutex.Lock()
+				{
+					log.Printf("Client %s is first user... sending admin password", clientId)
+					adminId = clientId
+					editorId = clientId
+					response.AdminPassword = adminPassword
+				}
+				mutex.Unlock()
+			}
 		}
 
-		docFileMutex.Unlock()
+		response.ClientKey = GenerateSha256(clientId)
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -196,7 +234,10 @@ func main() {
 		}
 
 		docFileMutex.Lock()
-		missingChanges := getUserCodeMissingChanges(req.UserCurrCodeId)
+		missingChanges, err := getUserCodeMissingChanges(req.UserCurrCodeId)
+		if err != nil {
+			log.Println("Failed to get latest changes: ", err)
+		}
 		response.Changes = missingChanges
 		docFileMutex.Unlock()
 
@@ -311,42 +352,19 @@ func handleConnections(ws *websocket.Conn) {
 	var msg Message
 
 	clientId := ws.Request().URL.Query().Get("clientId")
-
-	log.Printf("Client %s connected", clientId)
+	clientKey := ws.Request().URL.Query().Get("clientKey")
+	if !ValidateSha256(clientId, clientKey) {
+		log.Println("Attempt to connect to ws with invalid key. Closing connection.", clientId, clientKey)
+		ws.Close()
+	}
+	log.Println("WS stablished with: ", clientId, clientKey)
+	clients[ws] = clientId
 
 	// Broadcast new client to everyone
 	msg.ClientId = clientId
 	msg.AdminId = adminId
 	msg.Action = "sayhello"
-	msg.Code = string(docFile)
 	broadcast <- msg
-
-	msg.Action = "hello"
-	// If new client is admin we send the password, else we say hello with no password to client
-	if adminId == "" {
-		mutex.Lock()
-
-		adminId = clientId
-		editorId = clientId
-		msg.Password = adminPassword
-		log.Printf("Client %s is first user... sending admin password", clientId)
-		if err := websocket.JSON.Send(ws, msg); err != nil {
-			log.Printf("Error sending client authentication: %v", err)
-		}
-
-		mutex.Unlock()
-	} else {
-
-		mutex.Lock()
-
-		if err := websocket.JSON.Send(ws, msg); err != nil {
-			log.Printf("Error sending Hello: %v", err)
-			ws.Close()
-			return
-		}
-
-		mutex.Unlock()
-	}
 
 	// Receive messages from the client
 	for {
@@ -358,7 +376,6 @@ func handleConnections(ws *websocket.Conn) {
 			log.Printf("Error receiving message: %v", err)
 			break
 		}
-		// log.Printf("Received message: %+v", msg)
 
 		// Validate message
 		if msg.ClientId != clients[ws] {
@@ -438,6 +455,7 @@ func handleConnections(ws *websocket.Conn) {
 			}
 		default:
 
+			// TODO verify key
 			if msg.ClientId == editorId {
 				broadcast <- msg
 				log.Printf("Code update: %s, by %s", msg.Changes.Text, msg.ClientId)
@@ -609,4 +627,15 @@ func getUserCodeMissingChanges(userCodeId string) ([]Change, error) {
 	newChanges := editorChangesHistory[currCodeIdInt:]
 	return newChanges, nil
 
+}
+
+func GenerateSha256(input string) string {
+	h := hmac.New(sha256.New, SECRET_256_KEY)
+	h.Write([]byte(input))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func ValidateSha256(input, providedKey string) bool {
+	expectedKey := GenerateSha256(input)
+	return hmac.Equal([]byte(expectedKey), []byte(providedKey))
 }
