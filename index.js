@@ -159,6 +159,13 @@ function initSocket(username) {
             doc.replaceRange(text.join("\n"), from, to);
             console.log("doc", doc)
         }
+        else if (data.Action == "password")
+        {
+            console.log("Your password is:", data.Password);
+            localStorage.setItem('adminPassword', data.Password);
+            document.getElementById('adminPassword').value = data.Password;
+            sendPassword(savedPassword);
+        }
     };
     socket.onerror = function(error) {
         console.error("WebSocket error:", error);
@@ -724,15 +731,8 @@ function login(userName){
             console.log("Your id is", clientId);
             const doc = editor.getDoc();
             doc.setValue(data.Code)
-            
-            if (data.Password) 
-                {
-                    console.log("Your password is:", data.Password);
-                    localStorage.setItem('adminPassword', data.Password);
-                    document.getElementById('adminPassword').value = data.Password;
-                    sendPassword(savedPassword);
-                }
-            }
+
+        }
         populateClients(data.ClientList, false)
         initSocket(userName, chatMessages);       
     })

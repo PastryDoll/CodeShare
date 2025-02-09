@@ -1,6 +1,7 @@
 package main
 
 import (
+	"CodeShare/models"
 	"bufio"
 	"bytes"
 	"crypto/hmac"
@@ -23,15 +24,15 @@ import (
 )
 
 type Position struct {
-	Line int `json:"line"`
-	Ch   int `json:"ch"`
+	Line int `json:"line,omitempty"`
+	Ch   int `json:"ch,omitempty"`
 }
 
 type Change struct {
-	From Position `json:"from"`
-	To   Position `json:"to"`
-	Text []string `json:"text"`
-	Id   uint64   `json:"id"`
+	From Position `json:"from,omitempty"`
+	To   Position `json:"to,omitempty"`
+	Text []string `json:"text,omitempty"`
+	Id   uint64   `json:"id,omitempty"`
 }
 
 type Message struct {
@@ -46,16 +47,8 @@ type Message struct {
 	EditorKey  string `json:"EditorKey,omitempty"`
 
 	// Code Changes
-	Code    string `json:"Code,omitempty"`
-	Changes Change `json:"Changes,omitempty"`
-}
-
-type LoginMessage struct {
-	ClientKey     string `json:"ClientKey"`
-	Code          string `json:"Code"`
-	CodeId        int    `json:"CodeId"`
-	ClientList    string `json:"ClientList"`
-	AdminPassword string `json:"Password"`
+	Code    string  `json:"Code,omitempty"`
+	Changes *Change `json:"Changes,omitempty"`
 }
 
 var (
@@ -79,6 +72,16 @@ const (
 	DATA_DIR    string = "data/"
 )
 
+func wsHandler(ws *websocket.Conn) {
+	log.Println("WebSocket connection established")
+	handleConnections(ws)
+}
+
+func customHandshake(_ *websocket.Config, _ *http.Request) error {
+	// Disable Origin check to allow non-browser clients (for testing test)
+	return nil
+}
+
 func main() {
 
 	// Make empty code file
@@ -99,7 +102,12 @@ func main() {
 	//
 	//// Serving Websocket
 	//
-	http.Handle("/ws", websocket.Handler(handleConnections))
+
+	server := websocket.Server{
+		Handler:   websocket.Handler(wsHandler),
+		Handshake: customHandshake,
+	}
+	http.Handle("/ws", server)
 	go handleMessages()
 
 	//
@@ -130,7 +138,7 @@ func main() {
 		clientId := req.UserName
 		log.Printf("Login requested, user: %s", clientId)
 
-		var response LoginMessage
+		var response models.LoginMessage
 
 		//
 		//// Check if username is valid
@@ -186,20 +194,6 @@ func main() {
 
 		}
 		docFileMutex.Unlock()
-
-		// If new client is admin we send the password, else we say hello with no password to client
-		{
-			if adminId == "" {
-				mutex.Lock()
-				{
-					log.Printf("Client %s is first user... sending admin password", clientId)
-					adminId = clientId
-					editorId = clientId
-					response.AdminPassword = adminPassword
-				}
-				mutex.Unlock()
-			}
-		}
 
 		response.ClientKey = GenerateSha256(clientId)
 
@@ -358,7 +352,25 @@ func handleConnections(ws *websocket.Conn) {
 		ws.Close()
 	}
 	log.Println("WS stablished with: ", clientId, clientKey)
-	clients[ws] = clientId
+	// If new client is admin we send the password, else we say hello with no password to client
+	mutex.Lock()
+	{
+		if len(clients) == 0 {
+			{
+				log.Printf("Client %s is first user... sending admin password", clientId)
+
+				passwordMsg := Message{Action: "password", Password: adminPassword}
+				if err := websocket.JSON.Send(ws, passwordMsg); err != nil {
+					log.Printf("Error sending client adminKey: %v", err)
+				} else {
+					adminId = clientId
+					editorId = clientId
+				}
+			}
+		}
+		clients[ws] = clientId
+	}
+	mutex.Unlock()
 
 	// Broadcast new client to everyone
 	msg.ClientId = clientId
@@ -440,7 +452,7 @@ func handleConnections(ws *websocket.Conn) {
 				msg.Changes.Id = currChangeId
 				currChangeId += 1
 				docFileMutex.Lock()
-				editorChangesHistory = append(editorChangesHistory, msg.Changes)
+				editorChangesHistory = append(editorChangesHistory, *msg.Changes)
 				docFileMutex.Unlock()
 				changesJSON, err := json.Marshal(msg.Changes)
 				if err != nil {
