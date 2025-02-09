@@ -17,10 +17,10 @@ let clientColors = {}; // Modified in getClientColor
 let activeButton = null;
 let adminKey = null; 
 let editorKey = null; 
-let fileName = "Untitled"
-let fileFormat = ""
-let currCodeId = 0
-let clientKey = ""
+let fileName = "Untitled";
+let fileFormat = "";
+let currCodeId = 0;
+let clientKey = "";
 
 document.addEventListener("DOMContentLoaded", function() 
 {
@@ -154,10 +154,14 @@ function initSocket(username) {
             const to = data.Changes.to;      
             const text = data.Changes.text;  
             const changeId = data.Changes.id
-            if (changeId != currCodeId + 1) alert("Code id corruption. Current: ", currCodeId, "Incoming: ",changeId);
+            console.log(currCodeId,changeId, clientId)
+            if ((changeId - currCodeId) > 1 ) // TODO handle sync
+            {
+                console.log("Code id corruption. Current: ", currCodeId, "Incoming: ",changeId)
+                alert("Code id corruption. Check logs");
+            } 
             currCodeId = changeId
-            doc.replaceRange(text.join("\n"), from, to);
-            console.log("doc", doc)
+            if (data.ClientId != clientId) doc.replaceRange(text.join("\n"), from, to);
         }
         else if (data.Action == "password")
         {
@@ -733,7 +737,6 @@ function login(userName){
             doc.setValue(data.Code)
 
         }
-        populateClients(data.ClientList, false)
         initSocket(userName, chatMessages);       
     })
 }

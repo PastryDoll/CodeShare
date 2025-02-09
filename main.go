@@ -24,15 +24,15 @@ import (
 )
 
 type Position struct {
-	Line int `json:"line,omitempty"`
-	Ch   int `json:"ch,omitempty"`
+	Line int `json:"line"`
+	Ch   int `json:"ch"`
 }
 
 type Change struct {
-	From Position `json:"from,omitempty"`
-	To   Position `json:"to,omitempty"`
-	Text []string `json:"text,omitempty"`
-	Id   uint64   `json:"id,omitempty"`
+	From Position `json:"from"`
+	To   Position `json:"to"`
+	Text []string `json:"text"`
+	Id   uint64   `json:"id"`
 }
 
 type Message struct {
@@ -47,8 +47,8 @@ type Message struct {
 	EditorKey  string `json:"EditorKey,omitempty"`
 
 	// Code Changes
-	Code    string  `json:"Code,omitempty"`
-	Changes *Change `json:"Changes,omitempty"`
+	Code    string `json:"Code,omitempty"`
+	Changes Change `json:"Changes,omitempty"`
 }
 
 var (
@@ -63,7 +63,7 @@ var (
 	editorKey            string = ""
 	editorChangesHistory []Change
 	editorChangesQueue          = make(chan []byte, 100)
-	currChangeId         uint64 = 1
+	currChangeId         uint64 = 0
 	SECRET_256_KEY       []byte = []byte("TOPSECRET")
 )
 
@@ -154,8 +154,6 @@ func main() {
 				}
 				clientIDs = append(clientIDs, clientID)
 			}
-			response.ClientList = strings.Join(clientIDs, ",") // TODO Let this be a list and deal on the clieny
-
 		}
 		mutex.Unlock()
 		log.Printf("Client has valid ID: %s", clientId)
@@ -369,6 +367,13 @@ func handleConnections(ws *websocket.Conn) {
 			}
 		}
 		clients[ws] = clientId
+
+		var clientIDs []string
+		for _, clientID := range clients {
+			clientIDs = append(clientIDs, clientID)
+		}
+		msg.Clients = strings.Join(clientIDs, ",") // TODO Let this be a list and deal on the clieny
+
 	}
 	mutex.Unlock()
 
@@ -452,7 +457,7 @@ func handleConnections(ws *websocket.Conn) {
 				msg.Changes.Id = currChangeId
 				currChangeId += 1
 				docFileMutex.Lock()
-				editorChangesHistory = append(editorChangesHistory, *msg.Changes)
+				editorChangesHistory = append(editorChangesHistory, msg.Changes)
 				docFileMutex.Unlock()
 				changesJSON, err := json.Marshal(msg.Changes)
 				if err != nil {
@@ -500,21 +505,11 @@ func handleMessages() {
 	for {
 		msg := <-broadcast
 		mutex.Lock()
-		for client, clientId := range clients {
-			if msg.Action == "codechange" {
-				if clientId != msg.ClientId {
-					if err := websocket.JSON.Send(client, msg); err != nil {
-						log.Printf("Error sending message: %v", err)
-						client.Close()
-						delete(clients, client)
-					}
-				}
-			} else {
-				if err := websocket.JSON.Send(client, msg); err != nil {
-					log.Printf("Error sending message: %v", err)
-					client.Close()
-					delete(clients, client)
-				}
+		for client, _ := range clients {
+			if err := websocket.JSON.Send(client, msg); err != nil {
+				log.Printf("Error sending message: %v", err)
+				client.Close()
+				delete(clients, client)
 			}
 		}
 		mutex.Unlock()
@@ -575,7 +570,13 @@ func getDocumentFilePath() (string, error) {
 		return "", err
 	}
 	if count == 0 {
-		return "", fmt.Errorf("no file with the prefix 'document-' found")
+		log.Printf("[WARNING]: no file with the prefix 'document-' found")
+		documentPath = filepath.Join(DATA_DIR, "document-0")
+		file, err := os.Create(documentPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to create file 'document-0': %v", err)
+		}
+		file.Close()
 	}
 	return documentPath, nil
 }

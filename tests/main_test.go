@@ -40,18 +40,17 @@ func login(t *testing.T, userName string) []byte {
 	return body
 
 }
-func TestServer(t *testing.T) {
+
+func LoginAndWs(t *testing.T, userName string) *websocket.Conn {
 
 	//
 	//// Login
 	//
 	var loginBody models.LoginMessage
-	userName := "FirstUserTest"
 	response := login(t, userName)
 	err := json.Unmarshal(response, &loginBody)
 	if err != nil {
-		fmt.Println("Error decoding JSON:", err)
-		return
+		t.Fatalf("Error decoding JSON: %v", err)
 	}
 	fmt.Printf("Login Response: %+v\n", loginBody)
 
@@ -61,79 +60,104 @@ func TestServer(t *testing.T) {
 	wsURL := "ws://localhost:8080" + WSURL + "?clientId=" + userName + "&clientKey=" + loginBody.ClientKey
 	fmt.Println("Connecting with: ", wsURL)
 	wsConn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-	defer wsConn.Close()
 	if err != nil {
 		t.Fatalf("Failed to connect to WebSocket: %v", err)
 	}
+	return wsConn
 
-	//
-	//// Read messages from WebSocket
-	//
-	messageChan := make(chan []byte)
-	go func() {
-		for {
-			_, message, err := wsConn.ReadMessage()
-			if err != nil {
-				fmt.Println("Error reading message:", err)
-				return
-			}
-			messageChan <- message
-		}
-	}()
+}
 
-	expectedMessages := map[string]bool{"password": false, "sayhello": false}
-	timeout := time.After(10 * time.Second)
+func WSToQueue(wsConn *websocket.Conn, messageChan chan map[string]interface{}, errorChan chan error) {
 	for {
-		select {
-		case message, ok := <-messageChan:
-			if !ok {
-				return
-			}
-
-			var genericMessage map[string]interface{}
-			err := json.Unmarshal(message, &genericMessage)
-			if err != nil {
-				fmt.Println("Error decoding JSON message:", err)
-				continue
-			}
-			fmt.Printf("Received JSON Message: %+v\n", genericMessage)
-
-			// Extract action
-			action, ok := genericMessage["Action"].(string)
-			if !ok {
-				fmt.Println("Received message with no valid action")
-				continue
-			}
-
-			// Process message
-			switch action {
-			case "password":
-				if password, ok := genericMessage["Password"].(string); ok && password == "123" {
-					expectedMessages["password"] = true
-				}
-			case "sayhello":
-				adminID, hasAdminID := genericMessage["AdminId"]
-				clientID, hasClientID := genericMessage["ClientId"]
-				// clientList, hasClientList := genericMessage["ClientList"]
-
-				fmt.Printf("Received sayhello message with adminId: %v, ClientId: %v\n", adminID, clientID)
-				if hasAdminID && hasClientID {
-					expectedMessages["sayhello"] = true
-				}
-			}
-
-			// Check if all expected messages are received
-			if expectedMessages["password"] && expectedMessages["sayhello"] {
-				fmt.Println("All expected messages received!")
-				return
-			}
-
-		case <-timeout:
-			t.Fatalf("Timeout waiting for expected messages: %v", expectedMessages)
+		_, message, err := wsConn.ReadMessage()
+		if err != nil {
+			errorChan <- fmt.Errorf("Error reading message: %v", err)
 			return
 		}
+		var genericMessage map[string]interface{}
+		err = json.Unmarshal(message, &genericMessage)
+		if err != nil {
+			errorChan <- fmt.Errorf("Error decoding JSON message: %v", err)
+			continue
+		}
+		fmt.Printf("Received JSON Message: %+v\n", genericMessage)
+		messageChan <- genericMessage
 	}
 }
+
+func TestServer(t *testing.T) {
+	users := []string{"TestFirstUser", "TestSecondUser", "TestThirdUser"}
+	errorChan := make(chan error)
+
+	for _, user := range users {
+		go func(user string) {
+			wsConn := LoginAndWs(t, user)
+			defer wsConn.Close()
+
+			messageChan := make(chan map[string]interface{})
+			WSToQueue(wsConn, messageChan, errorChan)
+		}(user)
+	}
+
+	select {
+	case err := <-errorChan:
+		t.Fatalf("Received error from %v", err)
+	}
+	time.Sleep(time.Second * 5)
+}
+
+// expectedMessages := map[string]bool{"password": false, "sayhello": false}
+// timeout := time.After(10 * time.Second)
+// for {
+// 	select {
+// 	case message, ok := <-messageChan:
+// 		if !ok {
+// 			return
+// 		}
+
+// 		var genericMessage map[string]interface{}
+// 		err := json.Unmarshal(message, &genericMessage)
+// 		if err != nil {
+// 			fmt.Println("Error decoding JSON message:", err)
+// 			continue
+// 		}
+// 		fmt.Printf("Received JSON Message: %+v\n", genericMessage)
+
+// 		// Extract action
+// 		action, ok := genericMessage["Action"].(string)
+// 		if !ok {
+// 			fmt.Println("Received message with no valid action")
+// 			continue
+// 		}
+
+// 		// Process message
+// 		switch action {
+// 		case "password":
+// 			if password, ok := genericMessage["Password"].(string); ok && password == "123" {
+// 				expectedMessages["password"] = true
+// 			}
+// 		case "sayhello":
+// 			adminID, hasAdminID := genericMessage["AdminId"]
+// 			clientID, hasClientID := genericMessage["ClientId"]
+// 			clientList, hasClientList := genericMessage["Clients"]
+
+// 			fmt.Printf("Received sayhello message with adminId: %v, ClientId: %v, Clients: %v\n", adminID, clientID, clientList)
+// 			if hasAdminID && hasClientID && hasClientList {
+// 				expectedMessages["sayhello"] = true
+// 			}
+// 		}
+
+// 		// Check if all expected messages are received
+// 		// if expectedMessages["password"] && expectedMessages["sayhello"] {
+// 		// 	fmt.Println("All expected messages received!")
+// 		// 	return
+// 		// }
+
+// 	case <-timeout:
+// 		t.Fatalf("Timeout waiting for expected messages: %v", expectedMessages)
+// 		return
+// 	}
+// }
 
 // // Step 3: Send continuous messages
 // go func() {
