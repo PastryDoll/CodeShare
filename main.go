@@ -23,37 +23,9 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-type Position struct {
-	Line int `json:"line"`
-	Ch   int `json:"ch"`
-}
-
-type Change struct {
-	From Position `json:"from"`
-	To   Position `json:"to"`
-	Text []string `json:"text"`
-	Id   uint64   `json:"id"`
-}
-
-type Message struct {
-	ChatMsg    string `json:"ChatMsg,omitempty"`
-	ClientId   string `json:"ClientId,omitempty"`
-	AdminId    string `json:"AdminId,omitempty"`
-	Action     string `json:"Action,omitempty"`
-	Password   string `json:"Password,omitempty"`
-	Clients    string `json:"Clients,omitempty"`
-	TransferId string `json:"TransferId,omitempty"`
-	AdminKey   string `json:"AdminKey,omitempty"`
-	EditorKey  string `json:"EditorKey,omitempty"`
-
-	// Code Changes
-	Code    string `json:"Code,omitempty"`
-	Changes Change `json:"Changes,omitempty"`
-}
-
 var (
 	clients              = make(map[*websocket.Conn]string)
-	broadcast            = make(chan Message)
+	broadcast            = make(chan models.Message)
 	mutex                sync.Mutex
 	docFileMutex         sync.Mutex
 	adminPassword        string = "123"
@@ -61,7 +33,7 @@ var (
 	adminKey             string = ""
 	editorId             string = ""
 	editorKey            string = ""
-	editorChangesHistory []Change
+	editorChangesHistory []models.Change
 	editorChangesQueue          = make(chan []byte, 100)
 	currChangeId         uint64 = 0
 	SECRET_256_KEY       []byte = []byte("TOPSECRET")
@@ -145,14 +117,12 @@ func main() {
 		//
 		mutex.Lock()
 		{
-			var clientIDs []string
 			for _, clientID := range clients {
 				if clientID == clientId || clientId == "" {
 					log.Printf("Client ID is in use: %s", clientId)
 					http.Error(w, "Client ID is already in use, try another one.", http.StatusBadRequest)
 					return
 				}
-				clientIDs = append(clientIDs, clientID)
 			}
 		}
 		mutex.Unlock()
@@ -221,8 +191,8 @@ func main() {
 		}
 
 		var response struct {
-			Status  string   `json:"status"`
-			Changes []Change `json:"changes"`
+			Status  string          `json:"status"`
+			Changes []models.Change `json:"changes"`
 		}
 
 		docFileMutex.Lock()
@@ -341,7 +311,7 @@ func main() {
 }
 
 func handleConnections(ws *websocket.Conn) {
-	var msg Message
+	var msg models.Message
 
 	clientId := ws.Request().URL.Query().Get("clientId")
 	clientKey := ws.Request().URL.Query().Get("clientKey")
@@ -357,7 +327,7 @@ func handleConnections(ws *websocket.Conn) {
 			{
 				log.Printf("Client %s is first user... sending admin password", clientId)
 
-				passwordMsg := Message{Action: "password", Password: adminPassword}
+				passwordMsg := models.Message{Action: "password", Password: adminPassword}
 				if err := websocket.JSON.Send(ws, passwordMsg); err != nil {
 					log.Printf("Error sending client adminKey: %v", err)
 				} else {
@@ -385,7 +355,7 @@ func handleConnections(ws *websocket.Conn) {
 
 	// Receive messages from the client
 	for {
-		var msg Message
+		var msg models.Message
 		if err := websocket.JSON.Receive(ws, &msg); err != nil {
 			if err == io.EOF {
 				break
@@ -413,7 +383,7 @@ func handleConnections(ws *websocket.Conn) {
 			// Deauth previous admin
 			if adminId != msg.ClientId && adminId != "" {
 				log.Printf("Client %s deauthenticated as admin, new admin is %s", adminId, msg.ClientId)
-				deauthMsg := Message{ClientId: adminId, Action: "deauthenticated"}
+				deauthMsg := models.Message{ClientId: adminId, Action: "deauthenticated"}
 				broadcast <- deauthMsg
 			}
 
@@ -426,8 +396,8 @@ func handleConnections(ws *websocket.Conn) {
 			mutex.Unlock()
 
 			log.Printf("Client %s authenticated as admin", msg.ClientId)
-			successMsg := Message{ClientId: msg.ClientId, Action: "authenticated"}
-			keyMsg := Message{ClientId: msg.ClientId, Action: "transferKeys", AdminKey: adminKey, EditorKey: editorKey}
+			successMsg := models.Message{ClientId: msg.ClientId, Action: "authenticated"}
+			keyMsg := models.Message{ClientId: msg.ClientId, Action: "transferKeys", AdminKey: adminKey, EditorKey: editorKey}
 			if err := websocket.JSON.Send(ws, keyMsg); err != nil {
 				log.Printf("Error sending client adminKey: %v", err)
 			}
@@ -488,7 +458,7 @@ func handleConnections(ws *websocket.Conn) {
 	log.Printf("Clients %s disconnected", clientId)
 	// Broadcast all clients
 	{
-		var msg Message
+		var msg models.Message
 		msg.Action = "byebye"
 		msg.ClientId = clientId
 		var clientIDs []string
@@ -504,15 +474,19 @@ func handleConnections(ws *websocket.Conn) {
 func handleMessages() {
 	for {
 		msg := <-broadcast
-		mutex.Lock()
 		for client, _ := range clients {
+			log.Printf("Sending message to:%s, %+v", clients[client], msg)
 			if err := websocket.JSON.Send(client, msg); err != nil {
 				log.Printf("Error sending message: %v", err)
-				client.Close()
-				delete(clients, client)
+				mutex.Lock()
+				{
+					client.Close()
+					delete(clients, client)
+				}
+				mutex.Unlock()
 			}
+
 		}
-		mutex.Unlock()
 	}
 }
 
@@ -626,7 +600,7 @@ func getCurrentCodeId() (string, error) {
 
 }
 
-func getUserCodeMissingChanges(userCodeId string) ([]Change, error) {
+func getUserCodeMissingChanges(userCodeId string) ([]models.Change, error) {
 	currCodeId, err := getCurrentCodeId()
 	if err != nil {
 		fmt.Println("Error getting code id:", err)

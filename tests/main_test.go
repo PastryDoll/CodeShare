@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"testing"
 	"time"
@@ -67,42 +68,88 @@ func LoginAndWs(t *testing.T, userName string) *websocket.Conn {
 
 }
 
-func WSToQueue(wsConn *websocket.Conn, messageChan chan map[string]interface{}, errorChan chan error) {
+func WSToQueue(wsConn *websocket.Conn, ReceivesChan chan map[string]interface{}, errorChan chan error, user string) {
 	for {
 		_, message, err := wsConn.ReadMessage()
 		if err != nil {
-			errorChan <- fmt.Errorf("Error reading message: %v", err)
+			errorChan <- fmt.Errorf("!!!!!!!!Error reading message: %v", err)
 			return
 		}
 		var genericMessage map[string]interface{}
 		err = json.Unmarshal(message, &genericMessage)
 		if err != nil {
-			errorChan <- fmt.Errorf("Error decoding JSON message: %v", err)
+			errorChan <- fmt.Errorf("!!!!!!!!Error decoding JSON message: %v", err)
 			continue
 		}
-		fmt.Printf("Received JSON Message: %+v\n", genericMessage)
-		messageChan <- genericMessage
+		genericMessage["Receiver"] = user
+		ReceivesChan <- genericMessage
 	}
+}
+func SendChanges(wsConn *websocket.Conn, clientId string) {
+
+	for i := 0; i < 10; i++ {
+		change := models.Change{
+			From: models.Position{Line: 0, Ch: i},
+			To:   models.Position{Line: 0, Ch: i},
+			Text: []string{"a"},
+			Id:   uint64(i),
+		}
+		message := models.Message{
+			ClientId: clientId,
+			Changes:  change,
+			Action:   "codechange",
+		}
+
+		if err := wsConn.WriteJSON(message); err != nil {
+			log.Printf("Error sending message: %v", err)
+		}
+		time.Sleep(time.Second / 10)
+
+	}
+	time.Sleep(time.Second)
+
 }
 
 func TestServer(t *testing.T) {
-	users := []string{"TestFirstUser", "TestSecondUser", "TestThirdUser"}
-	errorChan := make(chan error)
+	users := map[string]*websocket.Conn{"First": nil, "Second": nil}
+	errorChan := make(chan error, 100)
+	ReceivesChan := make(chan map[string]interface{}, 1000)
 
-	for _, user := range users {
+	for user, _ := range users {
 		go func(user string) {
 			wsConn := LoginAndWs(t, user)
+			users[user] = wsConn
 			defer wsConn.Close()
 
-			messageChan := make(chan map[string]interface{})
-			WSToQueue(wsConn, messageChan, errorChan)
+			go WSToQueue(wsConn, ReceivesChan, errorChan, user)
+			time.Sleep(time.Second * 20)
 		}(user)
 	}
 
-	select {
-	case err := <-errorChan:
-		t.Fatalf("Received error from %v", err)
+	var admin string = ""
+
+loop:
+	for {
+		select {
+		case message, ok := <-ReceivesChan:
+			if !ok {
+				fmt.Printf("!!!!!!!!!!!!ERROR\n")
+				break loop
+			}
+			if message["Action"] == "password" {
+				user := message["Receiver"].(string)
+				admin = user
+				fmt.Printf("Admin is %s, starting to send changes\n", user)
+				go SendChanges(users[user], user)
+			}
+			if message["Receiver"] != admin {
+				fmt.Printf("Non admin Received queue: %+v\n", message)
+			}
+		case err := <-errorChan:
+			t.Fatalf("Received error from %v", err)
+		}
 	}
+
 	time.Sleep(time.Second * 5)
 }
 
